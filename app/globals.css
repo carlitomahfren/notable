@@ -1,8 +1,241 @@
 @import "tailwindcss";
 
+/*
+ * MOTION TOKENS
+ *
+ * One duration and one easing curve for interface motion, so search expansion,
+ * panel entry, and the theme thumb all feel like the same app. Both are fast on
+ * purpose: this is feedback for a click, not a transition between pages.
+ *
+ * `prefers-reduced-motion` at the end of this file flattens every transition
+ * and animation, so no rule needs its own guard.
+ */
+:root {
+  --motion-fast: 200ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+}
+
+/*
+ * THEME TOKENS
+ *
+ * Every themeable color lives here as a semantic custom property. Components
+ * consume these variables and never hardcode a hex value.
+ *
+ * `light-dark()` lets one declaration serve both color modes, so the OS
+ * `prefers-color-scheme` preference is handled by the browser rather than a
+ * JavaScript listener. `data-color-scheme` then pins the mode when the user
+ * explicitly chooses Light or Dark.
+ *
+ * Presets are orthogonal to color mode: each preset block redefines the same
+ * semantic tokens for both modes, so any preset works in any mode.
+ */
+
+/*
+ * Light-mode fallbacks for engines without `light-dark()`: a plain light
+ * Default theme. These blocks come first on purpose. The `@supports` block
+ * below has the same specificity, so source order decides, and the fallbacks
+ * must lose wherever `light-dark()` is actually supported.
+ */
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #16181d;
+  --surface: #ffffff;
+  --muted-foreground: #5b6270;
+  --border: #e3e5ea;
+  --border-strong: #c3c7d0;
+  --control: #ffffff;
+  --control-hover: #f0f1f4;
+  --control-selected: #e6e9f0;
+  --code-surface: #f4f5f7;
+  --selection: #cfe0ff;
+  --focus-ring: #1b1e24;
+  --backdrop: rgb(12 14 18 / 0.45);
+  --destructive: #b4232c;
+  --destructive-foreground: #ffffff;
+  --accent: #3b5bdb;
+  --accent-foreground: #ffffff;
+  --accent-lift: #2f4bb8;
+  --accent-lift-dark: #8fa6ff;
+  --accent-strong: var(--accent-lift);
+
+  /*
+   * Corner radii, named for the size of the thing rather than for a number, so a
+   * control, a panel, and a chip cannot each pick their own.
+   *
+   * `inline` is separate on purpose: a code span inside a sentence is not a control,
+   * and giving it the radius of a button makes it read as one. Pill (`999px`) and
+   * circle (`50%`) are not on the scale because they are shapes, not sizes.
+   */
+  --radius-inline: 0.25rem;
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+
+  /*
+   * Two steps of vertical rhythm and one gutter. Every stack in the app uses one of
+   * these rather than a value of its own, which is what makes a panel, a card, and a
+   * dialog feel like they were made by the same hand.
+   */
+  --space-tight: 0.5rem;
+  --space: 0.75rem;
+
+  /*
+   * The type stacks, written once. `next/font` supplies the Geist families; the
+   * generic names after it are what a reader without the webfont falls back to, so
+   * the stack has to stay attached to the token rather than be retyped per rule.
+   */
+  --stack-body: Arial, Helvetica, sans-serif;
+  --stack-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+[data-swatch-preset="default"] {
+  --swatch-background: #ffffff;
+  --swatch-surface: #e6e9f0;
+  --swatch-accent: #3b5bdb;
+}
+
+[data-swatch-preset="paper"] {
+  --swatch-background: #faf6ee;
+  --swatch-surface: #f2ece0;
+  --swatch-accent: #a4601f;
+}
+
+[data-swatch-preset="forest"] {
+  --swatch-background: #f2f7f3;
+  --swatch-surface: #e6efe8;
+  --swatch-accent: #1f6b45;
+}
+
+[data-swatch-preset="lavender"] {
+  --swatch-background: #f7f5fc;
+  --swatch-surface: #ece8f7;
+  --swatch-accent: #6d4bc4;
+}
+
+@supports (color: light-dark(#000, #fff)) {
+  :root {
+    color-scheme: light dark;
+
+    /* Mode-independent tokens. */
+    --focus-ring: light-dark(#1b1e24, #f4f6fa);
+    --backdrop: light-dark(rgb(12 14 18 / 0.45), rgb(0 0 0 / 0.62));
+    --destructive: light-dark(#b4232c, #f97066);
+    --destructive-foreground: light-dark(#ffffff, #2a0a08);
+
+    /* Default preset. */
+    --background: light-dark(#ffffff, #0e1014);
+    --surface: light-dark(#ffffff, #16191f);
+    --foreground: light-dark(#16181d, #e7e9ee);
+    --muted-foreground: light-dark(#5b6270, #a2a9b8);
+    --border: light-dark(#e3e5ea, #262b34);
+    --border-strong: light-dark(#c3c7d0, #3a414d);
+    --control: light-dark(#ffffff, #1a1e25);
+    --control-hover: light-dark(#f0f1f4, #22272f);
+    --control-selected: light-dark(#e6e9f0, #272d38);
+    --code-surface: light-dark(#f4f5f7, #1a1e25);
+    --selection: light-dark(#cfe0ff, #1f3a63);
+    --accent: light-dark(#3b5bdb, #5c7cfa);
+    /* Matches `accentForeground()`: white on light accents, near-black on dark. */
+    --accent-foreground: light-dark(#ffffff, #111111);
+    --accent-lift: light-dark(#2f4bb8, #8fa6ff);
+    --accent-lift-dark: light-dark(#2f4bb8, #8fa6ff);
+  }
+
+  /* An explicit choice pins the mode; `system` keeps following the OS. */
+  :root[data-color-scheme="light"] {
+    color-scheme: light;
+  }
+
+  :root[data-color-scheme="dark"] {
+    color-scheme: dark;
+  }
+
+  :root[data-preset="paper"] {
+    --background: light-dark(#faf6ee, #17140f);
+    --surface: light-dark(#fffdf8, #1e1a14);
+    --foreground: light-dark(#2a241c, #efe7d9);
+    --muted-foreground: light-dark(#6b6053, #b3a894);
+    --border: light-dark(#e6dccb, #2e2820);
+    --border-strong: light-dark(#cfc2ac, #453d31);
+    --control: light-dark(#fffdf8, #221d16);
+    --control-hover: light-dark(#f4eee2, #2b251d);
+    --control-selected: light-dark(#ece3d2, #332c22);
+    --code-surface: light-dark(#f2ece0, #221d16);
+    --selection: light-dark(#f0dfae, #4a3a1a);
+    --accent: light-dark(#a4601f, #d99a4e);
+    --accent-lift: light-dark(#8a4f16, #e8b877);
+    --accent-lift-dark: light-dark(#8a4f16, #e8b877);
+  }
+
+  :root[data-preset="forest"] {
+    --background: light-dark(#f2f7f3, #0b1310);
+    --surface: light-dark(#ffffff, #121c17);
+    --foreground: light-dark(#14261b, #e2efe7);
+    --muted-foreground: light-dark(#4c6155, #9cb3a5);
+    --border: light-dark(#d5e2d9, #1f2e26);
+    --border-strong: light-dark(#b3c8b9, #35473c);
+    --control: light-dark(#ffffff, #16211b);
+    --control-hover: light-dark(#eaf2ec, #1d2a23);
+    --control-selected: light-dark(#dcebe0, #243329);
+    --code-surface: light-dark(#e6efe8, #16211b);
+    --selection: light-dark(#c6e3ce, #1c4632);
+    --accent: light-dark(#1f6b45, #4fb37c);
+    --accent-lift: light-dark(#185736, #7fce9f);
+    --accent-lift-dark: light-dark(#185736, #7fce9f);
+  }
+
+  :root[data-preset="lavender"] {
+    --background: light-dark(#f7f5fc, #100e18);
+    --surface: light-dark(#ffffff, #181528);
+    --foreground: light-dark(#221c33, #ece8f7);
+    --muted-foreground: light-dark(#5f5675, #a89fc0);
+    --border: light-dark(#e0daf0, #241f3a);
+    --border-strong: light-dark(#c4bade, #3a3352);
+    --control: light-dark(#ffffff, #1c1830);
+    --control-hover: light-dark(#f0ecfa, #241f3c);
+    --control-selected: light-dark(#e6e0f6, #2c2647);
+    --code-surface: light-dark(#ece8f7, #1c1830);
+    --selection: light-dark(#dcd3f5, #33285c);
+    --accent: light-dark(#6d4bc4, #a78bfa);
+    --accent-lift: light-dark(#5a3ba8, #c4b1fd);
+    --accent-lift-dark: light-dark(#5a3ba8, #c4b1fd);
+  }
+
+/*
+    * Swatch colours are scoped per preset so the Personalize dialog can preview
+    * a preset that is not currently applied.
+    */
+  [data-swatch-preset="default"] {
+    --swatch-background: light-dark(#ffffff, #0e1014);
+    --swatch-surface: light-dark(#e6e9f0, #272d38);
+    --swatch-accent: light-dark(#3b5bdb, #5c7cfa);
+  }
+
+  [data-swatch-preset="paper"] {
+    --swatch-background: light-dark(#faf6ee, #17140f);
+    --swatch-surface: light-dark(#f2ece0, #26211a);
+    --swatch-accent: light-dark(#a4601f, #d99a4e);
+  }
+
+  [data-swatch-preset="forest"] {
+    --swatch-background: light-dark(#f2f7f3, #0b1310);
+    --swatch-surface: light-dark(#e6efe8, #19251e);
+    --swatch-accent: light-dark(#1f6b45, #4fb37c);
+  }
+
+  [data-swatch-preset="lavender"] {
+    --swatch-background: light-dark(#f7f5fc, #100e18);
+    --swatch-surface: light-dark(#ece8f7, #201c33);
+    --swatch-accent: light-dark(#6d4bc4, #a78bfa);
+  }
+
+  /*
+   * The accent used for text and small marks is always the mode-appropriate
+   * lift, so a custom accent can never produce unreadable text in either mode.
+   */
+  :root {
+    --accent-strong: light-dark(var(--accent-lift), var(--accent-lift-dark));
+  }
 }
 
 @theme inline {
@@ -12,15 +245,2795 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--stack-body);
+}
+
+::selection {
+  background: var(--selection);
+}
+
+/*
+ * The focus ring is deliberately neutral and mode-based rather than accent
+ * based, so it stays visible whatever color the user picks.
+ */
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.shell-skip-link {
+  position: absolute;
+  left: 0.5rem;
+  top: -3rem;
+  z-index: 50;
+  padding: 0.75rem 1rem;
+  background: var(--background);
+  color: var(--foreground);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  transition: top 150ms ease;
+}
+
+.shell-skip-link:focus {
+  top: 0.5rem;
+}
+
+.shell {
+  display: grid;
+  /*
+   * Top chrome, then the panes, then the two floating docks. The docks are real
+   * grid rows rather than fixed overlays so they can never cover the last row of
+   * note content at any height.
+   */
+  grid-template-areas:
+    "topbar"
+    "panes"
+    "fab"
+    "bottomnav";
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
+  block-size: 100dvh;
+  min-block-size: 100dvh;
+
+  /*
+   * Shared geometry for the two phone docks.
+   *
+   * `--shell-dock-max` is the widest the navigation pill is ever allowed to get, so
+   * that it keeps a visible margin from both edges of a large phone instead of
+   * stretching into a full-width bar. `--shell-dock-gutter` is that margin at its
+   * narrowest. The FAB row derives the same edge offset from these two values, which
+   * is what makes the button look deliberately aligned with the pill rather than
+   * arbitrarily placed.
+   */
+  --shell-dock-max: 22rem;
+  --shell-dock-gutter: 1rem;
+  --shell-dock-edge: max(var(--shell-dock-gutter), calc((100% - var(--shell-dock-max)) / 2));
+}
+
+.shell__panes {
+  grid-area: panes;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  min-block-size: 0;
+}
+
+.shell-pane {
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow: auto;
+  padding: 1rem;
+}
+
+/*
+ * BASE: one screen at a time. Both panes only appear together once there is
+ * room, which the SPLIT layer below decides.
+ */
+.shell[data-editor-open="true"] .shell-pane--list,
+.shell[data-editor-open="false"] .shell-pane--editor {
+  display: none;
+}
+
+.shell-pane--list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+/*
+ * The editor pane is the one pane whose content has to fit rather than scroll.
+ *
+ * It is a column, so the editor can take the pane's height and the pane's scroll
+ * port only has to absorb what genuinely does not fit. Without this the editor was
+ * a block sized by its own parts, and the footer with the delete control was pushed
+ * off the bottom of a normal screen instead of sitting at the end of the note.
+ */
+.shell-pane--editor {
+  display: flex;
+  flex-direction: column;
+}
+
+.shell-pane__focus-target {
+  flex: 1 1 auto;
+  min-block-size: 0;
+  overflow: auto;
+}
+
+.shell-pane__focus-target:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+}
+
+/* TOP BAR -------------------------------------------------------------- */
+
+.shell-top-bar {
+  grid-area: topbar;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  min-block-size: 3.5rem;
+  padding: 0.5rem 0.75rem;
+  /* Phones with a notch need the status bar inset kept clear. */
+  padding-block-start: max(0.5rem, env(safe-area-inset-top));
+  background: var(--surface);
+  border-block-end: 1px solid var(--border);
+}
+
+.shell-top-bar__brand {
+  flex: none;
+}
+
+.shell-top-bar__name {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+}
+
+.shell-top-bar__nav {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+}
+
+.shell-top-bar__utilities {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+
+/*
+ * Only the search yields space.
+ *
+ * Every other control in the bar is a fixed-size target, and flex would otherwise
+ * shrink them before it shrank the search. Shrinking them means a 44px target
+ * quietly becomes a 30px one, and an icon-only button squeezed narrower than its
+ * glyph starts to overlap the button beside it. Letting the search absorb the
+ * difference keeps every target honest and puts the pressure where the slack is.
+ */
+.shell-top-bar__utilities > .shell-icon-button,
+.shell-top-bar__utilities > .theme-quick-toggle,
+.shell-top-bar__utilities > .shell-new-note {
+  flex: none;
+}
+
+/* PRIMARY NAV ---------------------------------------------------------- */
+
+.shell-primary-nav,
+.shell-top-bar__nav {
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+}
+
+.shell-primary-nav {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.shell-nav-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-block-size: 2.75rem;
+  padding: 0.375rem 0.625rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-nav-button__icon {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.shell-nav-button__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/*
+ * The Home destination is a link wearing the nav button's clothes. Anchors bring
+ * their own underline and colour, so both are taken back here; nothing else is
+ * restyled, which is what keeps the link and the view buttons identical apart from
+ * what they do.
+ */
+.shell-home-link {
+  text-decoration: none;
+}
+
+/*
+ * The selected destination is marked by weight and a filled background, never by
+ * colour on its own.
+ */
+.shell-nav-button[aria-current] {
+  background: var(--control-selected);
+  border-color: var(--border-strong);
+  font-weight: 600;
+}
+
+.shell-tags {
+  position: relative;
+  display: flex;
+}
+
+.shell-tags__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-block-size: 2.75rem;
+  padding: 0.375rem 0.625rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-tags__trigger[aria-current] {
+  background: var(--control-selected);
+  border-color: var(--border-strong);
+  font-weight: 600;
+}
+
+.shell-tags__icon {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.shell-tags__panel {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-start: calc(100% + 0.375rem);
+  z-index: 30;
+  inline-size: max-content;
+  min-inline-size: 12rem;
+  max-inline-size: min(18rem, calc(100vw - 2rem));
+  max-block-size: min(20rem, 60dvh);
+  overflow: auto;
+  padding: 0.375rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.35);
+}
+
+/*
+ * ENTRY MOTION
+ *
+ * The search field and the tags panel start from `display: none`, so the browser
+ * has nothing to interpolate. `@starting-style` supplies the "before" state for the
+ * transition that runs when they are revealed, and `allow-discrete` keeps the
+ * element visible for the length of that transition. Where the feature is
+ * unsupported both simply appear instantly, which is a safe fallback.
+ *
+ * The search reveal moves and fades only. Animating `inline-size` instead would
+ * reflow the input and its placeholder on every frame and reflow the note list
+ * behind it, which costs far more than it communicates.
+ */
+.shell-search__field,
+.shell-tags__panel {
+  opacity: 1;
+  transition:
+    opacity var(--motion-fast) var(--ease-standard),
+    transform var(--motion-fast) var(--ease-standard),
+    overlay var(--motion-fast) allow-discrete,
+    display var(--motion-fast) allow-discrete;
+}
+
+@starting-style {
+  .shell-search__field {
+    opacity: 0;
+    transform: translateX(0.5rem);
+  }
+
+  .shell-tags__panel {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+
+.shell-tags[data-placement="bottom"] .shell-tags__panel {
+  inset-block-start: auto;
+  inset-block-end: calc(100% + 0.5rem);
+}
+
+@starting-style {
+  .shell-tags[data-placement="bottom"] .shell-tags__panel {
+    opacity: 0;
+    transform: translateY(0.25rem);
+  }
+}
+
+.shell-tags__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.shell-tags__option {
+  inline-size: 100%;
+  min-block-size: 2.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.375rem 0.625rem;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.shell-tags__name {
+  overflow-wrap: anywhere;
+}
+
+.shell-tags__option[aria-current] {
+  background: var(--control-selected);
+  font-weight: 600;
+}
+
+.shell-tags__count {
+  flex: none;
+  font-size: 0.8125rem;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.shell-tags__empty {
+  margin: 0;
+  padding: 0.625rem;
+  font-size: 0.875rem;
+  opacity: 0.7;
+}
+
+/* EXPANDABLE SEARCH ----------------------------------------------------- */
+
+.shell-search {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  min-inline-size: 0;
+  flex: 1 1 auto;
+}
+
+.shell-search__toggle {
+  flex: none;
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.shell-search__toggle-icon {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+/*
+ * A collapsed field still filters the list, so the toggle grows an accent dot
+ * instead of hiding the fact that a query is active.
+ */
+.shell-search__toggle[data-has-query] {
+  position: relative;
+}
+
+.shell-search__toggle[data-has-query]::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 0.5rem;
+  inset-inline-end: 0.5rem;
+  inline-size: 0.375rem;
+  block-size: 0.375rem;
+  border-radius: 50%;
+  background: var(--accent-strong);
+}
+
+.shell-search__field {
+  position: relative;
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: flex;
+  align-items: center;
+}
+
+.shell-search__field-icon {
+  position: absolute;
+  inset-inline-start: 0.625rem;
+  inline-size: 1rem;
+  block-size: 1rem;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+.shell-search__input {
+  inline-size: 100%;
+  /* 16px avoids mobile browser zoom-on-focus. */
+  font-size: 1rem;
+  min-block-size: 2.75rem;
+  /* Right padding clears the 44px close button without crowding the text. */
+  padding: 0.5rem 3rem 0.5rem 2.25rem;
+  background: var(--control);
+  color: inherit;
+  /* The strongest border token: a control boundary must be discernible. */
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.shell-search__input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.shell-search__input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.shell-search__close {
+  position: absolute;
+  inset-inline-end: 0;
+  /* 44px hit area, while the icon stays visually small. */
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.shell-search__close svg {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+/* UTILITY CONTROLS ----------------------------------------------------- */
+
+.shell-icon-button {
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.shell-icon-button svg {
+  inline-size: 1.25rem;
+  block-size: 1.25rem;
+}
+
+/*
+ * LIGHT / DARK QUICK TOGGLE
+ *
+ * Laid out as icon, track, icon. The two icons are never inside the track, so the
+ * sliding thumb has no geometry it can overlap: it travels inside a fixed-size
+ * channel between them. The active state is carried by three signals that do not
+ * depend on colour alone â€” the thumb position, the full-opacity icon, and the
+ * switch state exposed to assistive technology.
+ */
+.theme-quick-toggle {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0 0.5rem;
+  background: var(--control);
+  color: inherit;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.theme-quick-toggle:hover {
+  background: var(--control-hover);
+  border-color: var(--border-strong);
+}
+
+.theme-quick-toggle__track {
+  position: relative;
+  inline-size: 1.75rem;
+  block-size: 1.125rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+}
+
+.theme-quick-toggle__thumb {
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 0.125rem;
+  inline-size: 0.625rem;
+  block-size: 0.625rem;
+  margin-block-start: -0.3125rem;
+  background: var(--accent);
+  border-radius: 50%;
+  transition: inset-inline-start var(--motion-fast) var(--ease-standard);
+}
+
+.theme-quick-toggle[data-mode="dark"] .theme-quick-toggle__thumb {
+  inset-inline-start: calc(100% - 0.75rem);
+}
+
+.theme-quick-toggle__icon {
+  flex: none;
+  inline-size: 0.9375rem;
+  block-size: 0.9375rem;
+  opacity: 0.5;
+  transition: opacity var(--motion-fast) var(--ease-standard);
+}
+
+.theme-quick-toggle[data-mode="light"] .theme-quick-toggle__icon--sun,
+.theme-quick-toggle[data-mode="dark"] .theme-quick-toggle__icon--moon {
+  opacity: 1;
+}
+
+/* NEW NOTE -------------------------------------------------------------- */
+
+.shell-new-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  min-block-size: 2.75rem;
+  padding: 0.375rem 0.75rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.shell-new-note__icon {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.shell-new-note[data-variant="fab"] {
+  display: none;
+}
+
+/*
+ * On a phone the FAB gets its own grid row directly above the navigation pill, so it
+ * is always fully visible, never overlaps a note card, and needs no magic offset
+ * for the safe area. Its trailing edge is aligned to the pill's so the two read as
+ * one dock rather than as two unrelated floating things.
+ */
+.shell-fab-layer {
+  grid-area: fab;
+  display: none;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 0.5rem
+    max(var(--shell-dock-edge), env(safe-area-inset-right))
+    0.5rem
+    max(var(--shell-dock-gutter), env(safe-area-inset-left));
+}
+
+.shell-fab-layer .shell-new-note {
+  box-shadow: 0 10px 24px -10px rgb(0 0 0 / 0.45);
+}
+
+/* BOTTOM NAV ------------------------------------------------------------ */
+
+/*
+ * On a phone this is a floating pill, not a bar.
+ *
+ * The navigation landmark is the pill itself: centred, capped at `--shell-dock-max`
+ * so it keeps a visible margin from both edges of a large phone, and lifted by the
+ * bottom safe-area inset so it clears the home indicator. It is a grid item rather
+ * than a fixed overlay, which is what keeps it from ever covering the last note in
+ * the list at any height.
+ */
+.shell-bottom-nav {
+  grid-area: bottomnav;
+  display: none;
+  align-items: center;
+  justify-self: center;
+  align-self: end;
+  /*
+   * `env(safe-area-inset-left)` is in the subtraction because a landscape phone can be
+   * notched on the long edge, where a full-width bar would sit under the cutout.
+   */
+  inline-size: min(
+    calc(100% - 2 * max(var(--shell-dock-gutter), env(safe-area-inset-left))),
+    var(--shell-dock-max)
+  );
+  gap: 0.125rem;
+  margin-block-end: env(safe-area-inset-bottom);
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  box-shadow: 0 12px 28px -14px rgb(0 0 0 / 0.5);
+}
+
+.shell-bottom-nav > * {
+  min-inline-size: 0;
+}
+
+/*
+ * Five destinations, five equal columns.
+ *
+ * Notes and Pinned arrive as a pair inside one list, so that list is given two
+ * shares of the row and Home, Tags, and Settings one each. The result is five equal
+ * slots derived purely from the flex distribution: nothing is positioned
+ * individually, so the items cannot drift out of alignment as labels change length.
+ */
+.shell-bottom-nav .shell-primary-nav {
+  flex: 2 1 0;
+  display: flex;
+}
+
+.shell-bottom-nav .shell-primary-nav > li {
+  flex: 1 1 0;
+  min-inline-size: 0;
+  display: flex;
+}
+
+.shell-bottom-nav__slot {
+  flex: 1 1 0;
+  display: flex;
+}
+
+/*
+ * Every destination in the pill is icon over label so all five read as one set, and
+ * each label truncates rather than wrapping at 320px.
+ */
+.shell-bottom-nav .shell-nav-button {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  font-size: 0.6875rem;
+}
+
+.shell-bottom-nav .shell-primary-nav {
+  flex-direction: row;
+}
+
+/*
+ * Tags is not a `.shell-nav-button`, but in the pill it has to occupy the same slot
+ * as one: icon over label, same type size, same padding. Without this it would be
+ * the one horizontal, narrower item in a row of three vertical ones.
+ */
+.shell-bottom-nav .shell-tags {
+  flex: 1 1 0;
+}
+
+.shell-bottom-nav .shell-tags__trigger {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+  padding: 0.25rem;
+  font-size: 0.6875rem;
+}
+
+/*
+ * NOTE LIST ------------------------------------------------------------- */
+
+/*
+ * The selection row is the list pane's header: a child of the pane, above the port
+ * that scrolls. It is the only place in the app that acts on many notes at once, so
+ * it stays quiet until something is ticked rather than taking a row of its own.
+ */
+.notes-selection {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem 0.75rem;
+  padding: 0.25rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.notes-selection__select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.75rem;
+  font-size: 0.875rem;
+  cursor: pointer;
+}
+
+.notes-selection__select-all-label {
+  white-space: nowrap;
+}
+
+.notes-selection__checkbox,
+.note-card__select-input {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  flex: none;
+  margin: 0;
+  accent-color: var(--accent-strong);
+  cursor: pointer;
+}
+
+/*
+ * The count is a fact about the list rather than an event, so it is not a live
+ * region: the checkbox that changed it already announced the new state, and a second
+ * announcement of the same number would only repeat it.
+ */
+.notes-selection__count {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted-foreground);
+}
+
+.notes-selection__count[data-selected="true"] {
+  color: var(--foreground);
+  font-weight: 600;
+}
+
+.notes-selection__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-inline-start: auto;
+}
+
+.notes-selection__button {
+  min-block-size: 2.75rem;
+  padding-inline: 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  background: var(--control);
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.notes-selection__button:hover {
+  background: var(--control-hover);
+}
+
+.notes-selection__icon {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+/* The only destructive control outside a card, and it exists only while something is
+   ticked, so the weight belongs to the state rather than to a permanent red bar. */
+.notes-selection__delete {
+  color: var(--destructive);
+}
+
+.notes-selection__delete:hover {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  border-color: var(--destructive);
+}
+
+/*
+ * The heading of the list pane when the list is not showing every note. It shares the
+ * row and rhythm of the selection bar below it so the pane reads as one stack of
+ * context rather than as two competing strips, and it is never fixed or overlaid.
+ */
+.notes-workspace {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  padding: 0.375rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.notes-workspace__identity {
+  display: flex;
+  align-items: baseline;
+  gap: 0.375rem;
+  min-inline-size: 0;
+}
+
+.notes-workspace__icon {
+  align-self: center;
+  flex: none;
+  inline-size: 1rem;
+  block-size: 1rem;
+  color: var(--muted-foreground);
+}
+
+.notes-workspace__name {
+  margin: 0;
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  /* A tag is one word; a long one truncates rather than pushing the count out. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notes-workspace__count {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+  white-space: nowrap;
+}
+
+/*
+ * Stepping out of a tag is a view change, so it is a plain quiet button rather than a
+ * second navigation destination: the top bar already says where you are.
+ */
+.notes-workspace__exit {
+  min-block-size: 2.75rem;
+  padding-inline: 0.625rem;
+  flex: none;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.8125rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard);
+}
+
+.notes-workspace__exit:hover {
+  background: var(--control-hover);
+  color: var(--foreground);
+}
+
+.note-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.note-card__item {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  gap: 0.25rem;
+}
+
+/*
+ * The label is the target and the box inside it is small, so a thumb has 44px to aim
+ * at without the tick itself growing into the card's text column.
+ */
+.note-card__select {
+  flex: none;
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+/* A ticked card is marked by the box, by weight, and by a surface, so the state is
+   never carried by colour alone. */
+.note-card__item[data-selected="true"] .note-card {
+  background: var(--control-selected);
+}
+
+.note-card__item[data-selected="true"] .note-card__title {
+  font-weight: 700;
+}
+
+.note-card {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.625rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  color: inherit;
+  text-decoration: none;
+}
+
+.note-card:hover {
+  background: var(--control-hover);
+}
+
+.note-card[aria-current="page"] {
+  border-color: var(--accent-strong);
+  font-weight: 600;
+}
+
+.note-card__header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.note-card__title {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+
+.note-card__pinned {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent-strong);
+}
+
+.note-card__pinned-icon {
+  inline-size: 0.875rem;
+  block-size: 0.875rem;
+  fill: currentColor;
+}
+
+.note-card__excerpt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-size: 0.875rem;
+  /*
+   * The muted token rather than a fraction of the foreground's opacity. Two lines
+   * of 14px text at 75% of full black is the smallest text on the card and the
+   * easiest to lose; the token was chosen to stay readable at this size in both
+   * modes and in every preset, and an opacity fade throws that away.
+   */
+  color: var(--muted-foreground);
+}
+
+.note-card__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.note-card__tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.note-card__tag {
+  padding: 0.0625rem 0.375rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.note-card__pin {
+  flex: none;
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+/*
+ * One column for both card actions rather than a row across the card: two 44px
+ * targets side by side would take a quarter of a 20rem list pane away from the text
+ * the pane exists to show. Stacked, they fit inside a card that is already two lines
+ * of excerpt tall.
+ */
+.note-card__actions {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+}
+
+/*
+ * Neutral until it is asked for, destructive when it is. The editor's delete wears
+ * the destructive token outright because it is the only control in its footer; here
+ * the row also carries the pin, so a permanently red pair of icons would out-shout
+ * the note.
+ */
+.note-card__delete {
+  flex: none;
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    color var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.note-card__delete-icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.note-card__delete:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  color: var(--destructive);
+  border-color: var(--destructive);
+}
+
+.note-card__delete:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+/*
+ * Pinned and unpinned are told apart by a filled icon and by the button's
+ * accessible name, so the distinction never rests on colour alone.
+ */
+.note-card__pin-icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  opacity: 0.65;
+}
+
+.note-card__pin[aria-label^="Unpin"] .note-card__pin-icon {
+  color: var(--accent-strong);
+  opacity: 1;
+  fill: currentColor;
+}
+
+.note-card__pin:hover:not(:disabled) {
+  background: var(--control-hover);
+}
+
+.note-card__pin:disabled {
+  opacity: 0.5;
+  cursor: progress;
+}
+
+.notes-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1.5rem 0.75rem;
+  max-inline-size: 28rem;
+}
+
+.notes-empty__title {
+  margin: 0;
+  font-weight: 600;
+}
+
+.notes-empty__description {
+  margin: 0;
+  font-size: 0.875rem;
+  opacity: 0.75;
+}
+
+.notes-empty__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-block-start: 0.5rem;
+}
+
+.notes-empty__actions button,
+.notes-error button {
+  min-block-size: 2.75rem;
+  padding-inline: 0.875rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+  cursor: pointer;
+}
+
+.notes-error {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  align-items: flex-start;
+  padding: 0.75rem;
+  margin-block-end: 0.75rem;
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  color: var(--foreground);
+}
+
+.notes-error p {
+  margin: 0;
+}
+
+/*
+ * DIALOGS
+ *
+ * The dialog element is the whole window and the card is a child of it. That shape is
+ * what lets a click outside the content be recognized from the click's own target: the
+ * platform hit-tests everything around the card to the dialog element, and everything
+ * inside the card is somewhere else in the tree, so "outside" needs no listener on the
+ * document and "inside" cannot be mistaken for it.
+ *
+ * Centring is the box's own grid rather than the user agent's `margin: auto`, which no
+ * project stylesheet guarantees, and the dimming is the box's background, so the card is
+ * the only thing on screen that is not behind glass.
+ *
+ * Everything that draws the window is written against `[open]`, and that is the whole
+ * fix for a bug worth writing down. A closed `<dialog>` is hidden by the user agent, and
+ * it is hidden by an ordinary author declaration too, so a `display` in the base rule
+ * beats that rule for this element and nowhere else. The Personalize dialog is mounted
+ * on every page whether or not it was asked for, so a base `display` there meant a
+ * closed, empty, viewport-sized box with the dimming painted on it: a dark screen
+ * nothing could be clicked on, and no card to explain it, because the card mounts on
+ * open. No rule below is allowed to give a closed dialog a `display`, a `position` or a
+ * `background`; a dialog that is not open is not drawn, by the platform and by this.
+ */
+.confirm-dialog[open],
+.personalize-dialog[open] {
+  position: fixed;
+  inset: 0;
+  /*
+   * The user agent sizes a dialog to its content and caps it in viewport units.
+   * `inset: 0` only stretches a box whose size is `auto`, so those defaults are
+   * restated here instead of being fought with further down. `100dvh` rather than
+   * the stretched height alone so a phone's collapsing toolbar cannot leave the card
+   * taller than the window.
+   */
+  inline-size: auto;
+  block-size: 100dvh;
+  max-inline-size: none;
+  max-block-size: none;
+  margin: 0;
+  padding: 1rem;
+  display: grid;
+  place-items: center;
+  overflow: auto;
+  background: var(--backdrop);
+  border: 0;
+}
+
+/* The box already covers the viewport, so there is nothing left for the backdrop to dim. */
+.confirm-dialog::backdrop,
+.personalize-dialog::backdrop {
+  background: transparent;
+}
+
+.confirm-dialog__card,
+.personalize-dialog__card {
+  /* The card scrolls rather than the window, as it did when the dialog was the card. */
+  max-block-size: min(85dvh, 40rem);
+  overflow: auto;
+  padding: 1.25rem;
+  color: var(--foreground);
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+}
+
+.confirm-dialog__card {
+  inline-size: min(28rem, 90vw);
+}
+
+.personalize-dialog__card {
+  inline-size: min(30rem, 92vw);
+}
+
+.confirm-dialog__title {
+  margin: 0 0 0.5rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.confirm-dialog__body {
+  margin: 0 0 1rem;
+  font-size: 0.9375rem;
+}
+
+/*
+ * Shown only when the delete itself fails. The shared mutation error lives in
+ * the list pane, which is behind this modal, so the dialog states the failure
+ * next to the buttons the user has to act on.
+ */
+.confirm-dialog__error {
+  margin: 0 0 1rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--destructive-foreground);
+  background: var(--destructive);
+  border-radius: var(--radius-md);
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+.confirm-dialog__actions button {
+  min-block-size: 2.75rem;
+  padding-inline: 0.875rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+  cursor: pointer;
+}
+
+/*
+ * This dialog is only used for deletion, so its confirm button carries the
+ * destructive tone rather than the neutral accent.
+ */
+.confirm-dialog__confirm {
+  font-weight: 600;
+  background: var(--destructive);
+  color: var(--destructive-foreground);
+  border-color: var(--destructive);
+}
+
+.confirm-dialog__confirm:hover:not(:disabled) {
+  filter: brightness(0.94);
+}
+
+/* PERSONALIZE: one native dialog for mode, preset, and custom accent. */
+.personalize-dialog__title {
+  margin: 0 0 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.personalize-dialog__body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.personalize-dialog__section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+/* Legends are styled rather than a heading so the group semantics stay native. */
+.personalize-dialog__legend {
+  padding: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+
+.personalize-dialog__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.personalize-options {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.personalize-options--mode {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.personalize-options--preset {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.personalize-option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.75rem;
+  padding: 0.5rem 0.625rem;
+  background: var(--control);
+  color: inherit;
+  /* These are pointer targets, so the boundary uses the strongest token. */
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.personalize-option:hover {
+  background: var(--control-hover);
+}
+
+/*
+ * The native radio stays visible, so the selected option is communicated by
+ * the control itself rather than by colour alone.
+ */
+.personalize-option__radio {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.personalize-option:has(.personalize-option__radio:checked) {
+  border-color: var(--accent-strong);
+  background: var(--control-selected);
+  font-weight: 600;
+}
+
+.personalize-option__text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+  min-inline-size: 0;
+}
+
+.personalize-option__name {
+  font-size: 0.9375rem;
+}
+
+.personalize-option__description {
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--muted-foreground);
+  overflow-wrap: anywhere;
+}
+
+/* A three-chip strip previews the preset without switching to it. */
+.personalize-option__swatch {
+  display: flex;
+  flex: none;
+  gap: 0.125rem;
+}
+
+.personalize-option__chip {
+  inline-size: 0.5rem;
+  block-size: 1.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+}
+
+.personalize-option__chip--canvas {
+  background: var(--swatch-background);
+}
+
+.personalize-option__chip--surface {
+  background: var(--swatch-surface);
+}
+
+.personalize-option__chip--accent {
+  background: var(--swatch-accent);
+}
+
+.personalize-custom {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.625rem;
+}
+
+.personalize-custom__input {
+  inline-size: 3rem;
+  block-size: 2.75rem;
+  padding: 0.125rem;
+  background: var(--control);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.personalize-custom__value {
+  font-family: var(--stack-mono);
+  font-size: 0.875rem;
+}
+
+.personalize-custom__status {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--destructive);
+}
+
+.personalize-dialog__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-block-start: 1.25rem;
+  /*
+   * The dialog body scrolls, so the actions are pinned to the bottom of the
+   * scroll port. "Done" therefore stays reachable on short viewports instead of
+   * sitting below the fold of a scrolled dialog.
+   */
+  position: sticky;
+  inset-block-end: -1.25rem;
+  padding-block: 0.75rem;
+  padding-inline: 0;
+  margin-block-end: -1.25rem;
+  background: var(--surface);
+}
+
+.personalize-dialog__actions button {
+  min-block-size: 2.75rem;
+  padding-inline: 0.875rem;
+  background: var(--control);
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+  cursor: pointer;
+}
+
+.personalize-dialog__actions button:hover {
+  background: var(--control-hover);
+}
+
+.personalize-dialog__actions .personalize-dialog__primary {
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.personalize-dialog__actions .personalize-dialog__primary:hover {
+  /*
+   * The hover background is the mode-appropriate lift, which is guaranteed to
+   * take white text in light mode and near-black text in dark mode. The seed
+   * derived `--accent-foreground` cannot be reused here: it is chosen for the
+   * accent itself, not for the lighter or darker surface shown on hover.
+   */
+  background: light-dark(var(--accent-lift), var(--accent-lift-dark));
+  color: light-dark(#ffffff, #111111);
+  border-color: light-dark(var(--accent-lift), var(--accent-lift-dark));
+}
+
+/*
+ * The destructive control, and the footer that closes the editor.
+ *
+ * The footer is the last thing in the editor, so the delete icon is below the content
+ * and far from the title. Status and delete sit on one row with the status taking the
+ * slack, which keeps the two visually adjacent while stopping the status from being
+ * pushed to the far side of a wide screen away from the thing it describes.
+ */
+.editor__footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space);
+  margin-block-start: var(--space);
+  padding-block-start: var(--space);
+  border-block-start: 1px solid var(--border);
+}
+
+.editor__footer > .editor-save-status {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+/*
+ * EXPORT ------------------------------------------------------------------
+ *
+ * The panel opens above the trigger: the footer is the last row of the editor, so a
+ * panel that opened downwards would be cut off by the bottom of the screen on the
+ * note page. Absolute rather than fixed, so it moves with the editor and cannot
+ * escape its own pane.
+ */
+.export-menu {
+  position: relative;
+  flex: none;
+}
+
+.export-menu__trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-block-size: 2.75rem;
+  padding: 0.375rem 0.625rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.export-menu__trigger:hover {
+  background: var(--control-hover);
+}
+
+.export-menu__icon {
+  flex: none;
+  inline-size: 1rem;
+  block-size: 1rem;
+  color: var(--muted-foreground);
+}
+
+.export-menu__panel {
+  position: absolute;
+  inset-block-end: calc(100% + 0.375rem);
+  inset-inline-end: 0;
+  z-index: 3;
+  min-inline-size: 12rem;
+  /* The panel grows leftwards from the trigger; this is the stop that keeps it
+     inside a 320px screen when the trigger sits near the middle of the footer. */
+  max-inline-size: calc(100vw - 1.5rem);
+  padding: 0.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  box-shadow: 0 12px 28px -14px rgb(0 0 0 / 0.5);
+}
+
+.export-menu__panel[hidden] {
+  display: none;
+}
+
+.export-menu__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.export-menu__option {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  inline-size: 100%;
+  min-block-size: 2.75rem;
+  padding: 0.375rem 0.5rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  font-size: 0.875rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.export-menu__option:hover:not(:disabled) {
+  background: var(--control-hover);
+}
+
+.export-menu__option:disabled {
+  cursor: progress;
+}
+
+.export-menu__extension {
+  font-family: var(--stack-mono);
+  font-size: 0.75rem;
+  color: var(--muted-foreground);
+}
+
+.export-menu__error {
+  position: absolute;
+  inset-block-end: calc(100% + 0.375rem);
+  inset-inline-end: 0;
+  z-index: 4;
+  inline-size: max-content;
+  max-inline-size: 16rem;
+  margin: 0;
+  padding: 0.375rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--destructive);
+  border-radius: var(--radius-md);
+  font-size: 0.8125rem;
+  color: var(--destructive);
+}
+
+/*
+ * Destructive, and destructive in more than one way: the existing destructive token
+ * for the colour, a trash glyph rather than a neutral one for the shape, and a title
+ * so the name is available on hover as well as to assistive technology. The dialog
+ * that follows is where the action is confirmed in words.
+ *
+ * Hover fills with a low-alpha wash of the same token rather than a new colour, so the
+ * state cannot drift away from the contrast the token was chosen for.
+ */
+.editor-delete {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0;
+  background: transparent;
+  color: var(--destructive);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition:
+    background var(--motion-fast) var(--ease-standard),
+    border-color var(--motion-fast) var(--ease-standard);
+}
+
+.editor-delete:hover {
+  background: color-mix(in srgb, var(--destructive) 12%, transparent);
+  border-color: var(--destructive);
+}
+
+.editor-delete__icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  /*
+   * The note takes the pane's height, and the panel of editable content takes the
+   * slack inside it. The writing surface's own minimum is a floor for a short window
+   * rather than the height it asks for, so the footer with the delete control stays
+   * on screen on an ordinary desktop or phone instead of a screenful of notes later.
+   */
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+/*
+ * EXPANDED
+ *
+ * The same editor in the same place, given the whole window. Nothing is remounted to
+ * do it, so the caret, the undo stack and the draft are the ones the reader already
+ * had, and the way back out is Escape or the control that opened it.
+ *
+ * It is not a modal, and it does not pretend to be one: the note list behind is still
+ * reachable and still readable by assistive technology, which is the honest description
+ * of a bigger window rather than a trap.
+ *
+ * `100dvh` rather than a stretched height alone, so a phone's collapsing toolbar
+ * cannot leave the writing area taller than the window it is on.
+ */
+.editor[data-expanded="true"] {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  block-size: 100dvh;
+  padding: var(--space);
+  background: var(--background);
+  overflow: hidden;
+}
+
+.editor__title-input {
+  inline-size: 100%;
+  /* Above 16px so mobile browsers never zoom on focus. */
+  font-size: 1.375rem;
+  font-weight: 600;
+  min-block-size: 2.75rem;
+  padding: 0.5rem 0.625rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+}
+
+.editor__title-input::placeholder {
+  /* The 0.55 alpha default resolved to roughly 3.9:1, below 4.5:1. */
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.editor__title-input:hover {
+  border-color: var(--border);
+}
+
+.editor-field__label {
+  display: block;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  opacity: 0.7;
+}
+
+.editor-field__hint {
+  margin: 0;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.editor-tags {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.editor-tags__list {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin: 0;
+  padding: 0;
+}
+
+.editor-tags__list:empty {
+  display: none;
+}
+
+.editor-tags__chip {
+  display: inline-flex;
+  align-items: center;
+  min-block-size: 2.75rem;
+  padding-inline-start: 0.625rem;
+  background: var(--control-hover);
+  border-radius: 999px;
+}
+
+.editor-tags__name {
+  font-size: 0.875rem;
+  overflow-wrap: anywhere;
+}
+
+.editor-tags__remove {
+  /* 44px target, kept visually light. */
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: 999px;
+  font-size: 1.125rem;
+  cursor: pointer;
+}
+
+.editor-tags__remove:hover {
+  background: var(--control-selected);
+}
+
+.editor-tags__input {
+  inline-size: 100%;
+  max-inline-size: 18rem;
+  font-size: 1rem;
+  min-block-size: 2.75rem;
+  padding: 0.5rem 0.625rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+}
+
+.editor-tags__input::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.editor__toolbar-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-tight);
+}
+
+.editor-tabs {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.1875rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.editor-tabs__tab {
+  /* Interactive targets stay at the 44px minimum on every breakpoint. */
+  min-block-size: 2.75rem;
+  padding-inline: 0.75rem;
+  background: transparent;
+  color: inherit;
+  border: 0;
+  border-radius: var(--radius-sm);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* The active tab is marked by weight and a surface, not colour alone. */
+.editor-tabs__tab[aria-selected="true"] {
+  background: var(--control-selected);
+  font-weight: 600;
+}
+
+.editor-save-status {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  max-inline-size: 100%;
+  font-size: 0.8125rem;
+  opacity: 0.75;
+}
+
+.editor-save-status__icon {
+  flex: none;
+  inline-size: 0.9375rem;
+  block-size: 0.9375rem;
+}
+
+.editor-save-status[data-state="error"] {
+  opacity: 1;
+  font-weight: 600;
+  color: var(--destructive);
+}
+
+/* The reason a save failed is readable, not only announced. */
+.editor-save-status__detail {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.editor__panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-tight);
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  /*
+   * Zero, so the panel is allowed to shrink below its content and hand the space to
+   * the writing surface. The automatic minimum would keep the floor from being a floor.
+   */
+  min-block-size: 0;
+  /*
+   * The writing area has a boundary whether or not the caret is in it, because a page
+   * being written on has an edge and a note that only grows one when it is being typed
+   * in makes the whole editor look unfinished until it is.
+   *
+   * A hairline in the same token as every other boundary in the app, and a shadow so
+   * faint it only shows against what is behind it. No background and no inset ring:
+   * those are what turn a page into a field, and Edit and Preview both show this same
+   * surface, so it is drawn once, here, rather than twice.
+   */
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--foreground) 6%, transparent);
+  /*
+   * The hairline is the only thing that moves on focus. The ring itself cannot be
+   * transitioned, and drawing it while the hairline is still there would put two
+   * edges one pixel apart.
+   */
+  transition: border-color var(--motion-fast) var(--ease-standard);
+}
+
+.editor__panel[hidden] {
+  display: none;
+}
+
+.editor-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.editor-toolbar__button {
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  /*
+   * A 25%-alpha outline was too faint to identify these as controls, so the
+   * toolbar uses the same boundary token as every other pointer target.
+   */
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+/*
+ * One icon size across the app. A 44px control holding an 18px glyph is a target
+ * with a drawing in it; the drawing is what the eye reads first, so the two must
+ * agree on scale as much as the controls agree on size.
+ */
+.editor-toolbar__icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.editor-toolbar__button:hover {
+  background: var(--code-surface);
+}
+
+/*
+ * The control that gives the writing area the window. An icon rather than a word,
+ * because it sits on the row that already says what mode the note is in, and one glyph
+ * is enough: the state is also on the control, as `aria-expanded` and as a name that
+ * changes with it, so it is never a button that looks the same either way.
+ */
+.editor-expand {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.editor-expand:hover {
+  background: var(--control-hover);
+}
+
+.editor-expand__icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+/*
+ * THE NOTE DOCUMENT
+ *
+ * One set of rules for the note's text, used by both the writing surface and the
+ * Preview tab, because they are the same document: the editor is what the reader
+ * writes in, and the preview is that document with editing switched off. There is
+ * nothing to keep in step, so there is nothing here that could drift.
+ *
+ * The box is `.rich-text__surface`, the scrolling element, and the type is
+ * `.rich-text__prose`, the document inside it. Padding lives on the box, so the
+ * document's own margin collapsing has no say in where the first line sits, and the
+ * caret never rests on the boundary.
+ *
+ * The surface draws no boundary of its own. The editor already sits in a container, and
+ * a second box inside it made one writing surface look like a text field dropped into a
+ * pane; a note reads as the page it is on.
+ *
+ * What is left here is presentation, and it is presentation only: spacing, sizes, and
+ * which token draws each kind of block. Every colour is a semantic token, so all four
+ * presets and both color modes carry the document without a rule of their own.
+ */
+.rich-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-tight);
+  /* Takes the slack in the panel, and stops below at the floor set on the surface. */
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.rich-text__surface {
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-block-size: 8rem;
+  padding: var(--space);
+  background: transparent;
+  /*
+   * A note is a page, and a scrollbar drawn up its right-hand edge describes a field
+   * with a fixed amount in it. Scrolling is untouched: the port still answers the
+   * wheel, a trackpad, the keyboard and the caret running past the last line.
+   * `scrollbar-width` is how this is asked for in standard CSS, and the pseudo-element
+   * covers the engines that had no such property.
+   */
+  scrollbar-width: none;
+}
+
+.rich-text__surface::-webkit-scrollbar {
+  display: none;
+}
+
+/*
+ * The document itself, on the full width of the surface. The measure a note is read at
+ * is the pane it is in: a cap here left a wide editor with a column of text stranded in
+ * the middle of it and a hand-drawn edge that said "field" about something that is a
+ * page.
+ */
+.rich-text__prose {
+  /* 16px avoids mobile browser zoom-on-focus, as everywhere else in the app. */
+  font-size: 1rem;
+  line-height: 1.65;
+  overflow-wrap: break-word;
+}
+
+.rich-text__prose > :first-child {
+  margin-block-start: 0;
+}
+
+.rich-text__prose > :last-child {
+  margin-block-end: 0;
+}
+
+/*
+ * An empty note has nothing in it, so the hint is drawn as the paragraph's own content
+ * and the caret sits in front of it. `float` is what stops it taking a line of its own,
+ * and `pointer-events: none` stops it from being clicked as if it were text.
+ */
+.rich-text__prose .rich-text--empty::before {
+  content: attr(data-placeholder);
+  float: left;
+  block-size: 0;
+  color: var(--muted-foreground);
+  pointer-events: none;
+}
+
+/* A selection is the reader's own wash of colour, the app's, not the browser's. */
+.rich-text__prose ::selection {
+  background: var(--selection);
+}
+
+/*
+ * Headings. The document's largest is an h2: the note's title is already the page's one
+ * h1, so a stored `#` is drawn at level 2, `##` at level 3, and so on down the ladder.
+ * Each level is then given its own size, because two heading tags of one size are one
+ * heading wearing two hats.
+ */
+.rich-text__prose h2,
+.rich-text__prose h3,
+.rich-text__prose h4,
+.rich-text__prose h5,
+.rich-text__prose h6 {
+  margin: 1.5em 0 0.5em;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.rich-text__prose h2 {
+  font-size: 1.375rem;
+}
+
+.rich-text__prose h3 {
+  font-size: 1.1875rem;
+}
+
+.rich-text__prose h4 {
+  font-size: 1.0625rem;
+}
+
+.rich-text__prose h5 {
+  font-size: 1rem;
+}
+
+/*
+ * The sixth stored level is drawn as an h6 too, since there is no h7, so it gets its
+ * own size as well rather than sharing the fifth's.
+ */
+.rich-text__prose h6 {
+  font-size: 0.9375rem;
+}
+
+.rich-text__prose p {
+  margin: 0 0 1em;
+}
+
+/*
+ * Lists. A checklist has no bullet of its own, so the item is pulled back by the width
+ * of the box that is replacing it: without that the ticks sit outside the note's text
+ * column and the list stops lining up with the paragraph above it.
+ *
+ * The markers have to be asked for. The base layer strips them from every list in the
+ * app, which is right for the navigation built out of lists and wrong for a note: a
+ * bulleted or numbered list with nothing in front of its items reads as a stack of
+ * indented lines. They take the text's own colour, so every preset and both colour
+ * modes carry them without a rule of their own.
+ */
+.rich-text__prose ul,
+.rich-text__prose ol {
+  margin: 0 0 1em;
+  padding-inline-start: 1.5rem;
+}
+
+.rich-text__prose ul {
+  list-style-type: disc;
+}
+
+.rich-text__prose ol {
+  list-style-type: decimal;
+}
+
+.rich-text__prose li {
+  margin-block-end: 0.25em;
+}
+
+.rich-text__prose li > ul,
+.rich-text__prose li > ol {
+  margin-block: 0.25em;
+}
+
+.rich-text__prose ul[data-type="taskList"] {
+  list-style: none;
+  padding-inline-start: 0;
+}
+
+.rich-text__prose ul[data-type="taskList"] > li {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+
+.rich-text__prose ul[data-type="taskList"] > li > label {
+  flex: none;
+  margin-block-start: 0.35em;
+}
+
+.rich-text__prose ul[data-type="taskList"] > li > div {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+}
+
+.rich-text__prose ul[data-type="taskList"] input[type="checkbox"] {
+  inline-size: 1rem;
+  block-size: 1rem;
+  margin: 0;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.rich-text__prose ul[data-type="taskList"] li[data-checked="true"] > div {
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+  text-decoration-color: var(--border-strong);
+}
+
+.rich-text__prose blockquote {
+  margin: 0 0 1em;
+  padding: 0.25rem 0 0.25rem 0.875rem;
+  border-inline-start: 3px solid var(--border-strong);
+  opacity: 0.85;
+}
+
+.rich-text__prose blockquote > :last-child {
+  margin-block-end: 0;
+}
+
+/*
+ * Code. The monospaced stack is the one token in the app, and it is here and nowhere
+ * else now: the note's prose is proportional, so an identifier in a sentence reads as a
+ * sentence and only code looks like code.
+ */
+.rich-text__prose code {
+  padding: 0.125em 0.3125em;
+  background: var(--code-surface);
+  border-radius: var(--radius-inline);
+  font-family: var(--stack-mono);
+  font-size: 0.875em;
+}
+
+.rich-text__prose pre {
+  margin: 0 0 1em;
+  padding: 0.75rem;
+  overflow-x: auto;
+  background: var(--code-surface);
+  border-radius: var(--radius-md);
+  font-family: var(--stack-mono);
+}
+
+.rich-text__prose pre code {
+  padding: 0;
+  background: none;
+  font-size: 0.875rem;
+}
+
+.rich-text__prose a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 0.15em;
+}
+
+.rich-text__prose hr {
+  margin: 1.5em 0;
+  border: 0;
+  border-block-start: 1px solid var(--border);
+}
+
+/*
+ * The editor's own furniture, which only exists while the note is being written.
+ *
+ * A selected node is a whole block the reader has picked up, and it is drawn as one.
+ *
+ * The trailing break is deliberately left alone. It is a rendering artefact that gives
+ * the caret a line to sit on, and it paints nothing either way, so hiding it bought
+ * nothing: in an empty paragraph it was the only thing inside the block, and a browser
+ * will not put a caret in a position it cannot see, so an empty note silently refused
+ * every keystroke while looking perfectly ready to be typed into.
+ */
+
+.rich-text__prose .ProseMirror-selectednode {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/*
+ * The link dialog: the one control in the editor that needs something typed into it. It
+ * sits under the toolbar rather than over the text, and its address field takes the row
+ * a control of its own would have.
+ */
+.link-menu {
+  display: flex;
+  gap: 0.25rem;
+  align-items: stretch;
+}
+
+.link-menu__address {
+  flex: 1 1 auto;
+  min-inline-size: 0;
+  min-block-size: 2.75rem;
+  padding: 0.5rem 0.625rem;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: inherit;
+}
+
+.link-menu__address::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+.link-menu__button {
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: inherit;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+}
+
+.link-menu__button:hover {
+  background: var(--control-hover);
+}
+
+.link-menu__icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+.editor__panel--preview {
+  padding-block-end: 1rem;
+}
+
+/* The preview is focusable so it can be scrolled without a pointer. */
+.editor__panel--preview:focus-visible {
+  /* The hairline steps aside for the ring, so focus draws one edge rather than two. */
+  border-color: transparent;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
+
+/*
+ * The writable panel is the editor the reader is in, so this is where its ring is drawn.
+ * It used to be drawn around the writing surface inside the panel, which put a second
+ * rectangle inside the first: a textbox in a textbox, around a document that is not one.
+ * Out here it says what it means, which is the editing area, and it says it once.
+ */
+.editor__panel:not(.editor__panel--preview):focus-within {
+  border-color: transparent;
+  outline: 2px solid var(--focus-ring);
+  outline-offset: -2px;
+  border-radius: var(--radius-md);
+}
+
+/*
+ * And the document keeps a ring rather than losing one: a writable region counts as a
+ * text field, so the browser marks it focused however the caret arrived. Drawn there as
+ * well it would sit inside the panel's, which is the pair of rectangles this arrangement
+ * exists to avoid. The read-only document is untouched and keeps its own.
+ */
+.rich-text__prose[contenteditable="true"]:focus-visible {
+  outline: 2px solid transparent;
+}
+
+/* HOME ------------------------------------------------------------------ */
+
+/*
+ * The landing page is one centred column on the background colour, not a second
+ * shell: there is no list, no editor, and nothing to navigate inside. It fills the
+ * viewport so the theme toggle can sit in a bar of its own instead of floating over
+ * the text, and the column is width-limited so a long line of lede text on a wide
+ * monitor stays a readable measure.
+ */
+.home {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  min-block-size: 100dvh;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+.home__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  min-block-size: 3.5rem;
+  padding: 0.5rem 0.75rem;
+  padding-block-start: max(0.5rem, env(safe-area-inset-top));
+  border-block-end: 1px solid var(--border);
+}
+
+.home__brand {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.home__main {
+  display: flex;
+  justify-content: center;
+  /* Room for the focus ring of the action, which is an inline-flex box with an
+     outline, so the padding has to outgrow the outline rather than clip it. */
+  padding: clamp(1.5rem, 6vw, 4rem) 1.25rem;
+}
+
+.home__panel {
+  inline-size: min(32rem, 100%);
+}
+
+.home__eyebrow {
+  margin: 0 0 0.375rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+.home__title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.home__lede {
+  margin: 0 0 1.5rem;
+  color: var(--muted-foreground);
+  line-height: 1.6;
+}
+
+/*
+ * One action, styled as the primary action of the app: an accent fill and a label
+ * large enough to be a comfortable thumb target on a phone.
+ */
+.home__action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-block-size: 2.75rem;
+  padding: 0.625rem 1rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background var(--motion-fast) var(--ease-standard);
+}
+
+.home__action:hover {
+  background: var(--accent-strong);
+}
+
+.home__action-icon {
+  flex: none;
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+/*
+ * The counts read as one row of figures rather than three boxes. A border around
+ * each number would imply three separate cards to tap, and nothing here is tappable,
+ * so the separation is spacing instead.
+ */
+.home-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  margin: 2rem 0 0;
+  padding-block-start: 1.25rem;
+  border-block-start: 1px solid var(--border);
+}
+
+/*
+ * The three figures are a definition list; the live region beside them is not, so the
+ * list is wrapped rather than the `<dl>` holding a paragraph.
+ */
+.home-stats__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.5rem 2rem;
+  margin: 0;
+}
+
+.home-stat {
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 0.125rem;
+}
+
+.home-stat__label {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.home-stat__value {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+/*
+ * An empty element that only carries a live region. It is not removed from the
+ * layout because a live region has to exist before its content changes to be
+ * announced at all.
+ */
+.home-stats__state {
+  flex: 1 1 100%;
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--muted-foreground);
+}
+
+.home-stats__state:empty {
+  block-size: 0;
+}
+
+.home-stats[data-status="error"] .home-stat__value {
+  color: var(--muted-foreground);
+}
+
+/*
+ * Short viewports: keep the editor reachable instead of a screenful of note.
+ *
+ * On a landscape phone the note's own chrome is most of the height, so the floor on the
+ * writing surface comes down rather than pushing the footer off the screen.
+ */
+@media (max-height: 560px) {
+  .rich-text__surface {
+    min-block-size: 5rem;
+  }
+}
+
+/*
+ * Narrow dialogs: three mode options across a 320px screen leaves each label
+ * only a few characters wide, so the options stack instead of shrinking. The
+ * width itself is left alone, because `92vw` already has the slack that keeps a
+ * centred dialog from overflowing horizontally.
+ */
+@media (max-width: 420px) {
+  .personalize-options--mode,
+  .personalize-options--preset {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Scoped to [open] with the rest of the layer, for the same reason. */
+  .personalize-dialog[open] {
+    padding: 1rem;
+  }
+
+  .personalize-dialog__actions {
+    inset-block-end: -1rem;
+    margin-block-end: -1rem;
+  }
+}
+
+/*
+ * The narrowest supported phone, 320px.
+ *
+ * The brand and the top-bar navigation are already gone at this width, so what is
+ * left is tightened rather than allowed to collide: the gaps shrink and the search
+ * field's own padding comes down, since the icon and the close button sit inside it
+ * and cannot move. Everything else in the bar holds its 44px target, and the search
+ * absorbs what is left over.
+ */
+@media (max-width: 360px) {
+  .shell-top-bar {
+    gap: 0.5rem 0.25rem;
+  }
+
+  .shell-top-bar__utilities {
+    gap: 0.25rem;
+  }
+
+  .shell-search__input {
+    padding-inline: 2rem 2.75rem;
+  }
+}
+
+.visually-hidden {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.shell-sidebar__placeholder,
+.shell-placeholder {
+  margin: 0;
+  /*
+   * No opacity reduction here. `--muted-foreground` already meets 4.5:1 on both
+   * canvases, and stacking an alpha on top of it dropped this text to roughly
+   * 3.2:1 in light mode.
+   */
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+.shell-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  flex: 1 1 auto;
+  min-block-size: 0;
+}
+
+.shell-editor__title {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+/*
+ * The root 404 sits outside the notes shell, so it has no list pane to fall back
+ * on and its return link must stay visible at every breakpoint.
+ */
+.shell-return-link {
+  align-self: flex-start;
+  min-block-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+}
+
+/*
+ * PHONE (the base layer above): the bottom bar is the only navigation, so it is
+ * revealed here and the top bar drops its text-heavy parts.
+ */
+@media (max-width: 767px), (max-height: 499px) {
+  .shell-bottom-nav {
+    display: flex;
+  }
+
+  .shell-new-note[data-variant="fab"] {
+    display: inline-flex;
+  }
+
+  .shell-fab-layer {
+    display: flex;
+  }
+
+  .shell-top-bar__name {
+    /* The bottom bar already labels every destination; the brand would only
+       compete with it for room at 320px. */
+    display: none;
+  }
+
+  .shell-top-bar__nav {
+    display: none;
+  }
+
+  .shell-top-bar__utilities {
+    flex: 1 1 auto;
+  }
+
+  /*
+   * With the bottom bar carrying the destinations, the floating button is the one
+   * primary action worth having and it sits within reach of a thumb. Leaving the
+   * top bar's button in place as well would put two identical controls on screen
+   * at once for no gain. SHORT below puts it back, because there the bottom bar
+   * steps aside.
+   */
+  .shell-top-bar .shell-new-note[data-variant="bar"] {
+    display: none;
+  }
+}
+
+/*
+ * SPLIT: list and editor side by side. The top bar becomes the single
+ * navigation, so the bottom bar and the FAB both step aside.
+ */
+@media (min-width: 768px) and (min-height: 500px) {
+  .shell__panes {
+    grid-template-columns: minmax(0, 20rem) minmax(0, 1fr);
+  }
+
+/*
+   * Once both panes fit, neither screen hides the other. The selectors repeat the
+   * attribute so they match the specificity of the base rule above and win on
+   * source order.
+   *
+   * Both panes stay columns, as they are on a phone. The list then scrolls inside
+   * its own port, so the selection bar holds its place while the notes move under
+   * it, and the editor's footer closes the note instead of falling below the fold.
+   */
+  .shell[data-editor-open] .shell-pane--list,
+  .shell[data-editor-open] .shell-pane--editor {
+    display: flex;
+  }
+
+  .shell-top-bar__nav {
+    display: flex;
+  }
+}
+
+/* WIDE: room for the full top bar without it competing with the panes. */
+@media (min-width: 1280px) and (min-height: 500px) {
+  .shell__panes {
+    grid-template-columns: minmax(0, 22rem) minmax(0, 1fr);
+  }
+
+  .shell-top-bar {
+    gap: 0.5rem 1.5rem;
+    padding-inline: 1.25rem;
+  }
+}
+
+/*
+ * SHORT: a landscape phone has too little height for a bottom bar and an
+ * editor at once, so the top bar stays the only navigation even though the
+ * width would otherwise qualify.
+ */
+@media (min-height: 320px) and (max-height: 499px) {
+  .shell-top-bar__nav {
+    display: flex;
+  }
+
+  .shell-top-bar__name {
+    display: inline;
+  }
+
+  .shell-bottom-nav {
+    display: none;
+  }
+
+  /*
+   * The top bar's own New note button is visible again, so the FAB would only
+   * take height away from the editor.
+   */
+  .shell-top-bar .shell-new-note[data-variant="bar"] {
+    display: inline-flex;
+  }
+
+  .shell-new-note[data-variant="fab"],
+  .shell-fab-layer {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

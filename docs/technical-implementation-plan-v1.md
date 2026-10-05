@@ -1,12 +1,12 @@
-# Notes App — Technical Implementation Plan v1
+# Notable — Technical Implementation Plan v1
 
 ## Document Status
 
-**Project:** Notes App  
+**Project:** Notable  
 **Phase:** Phase 2 — Technical Implementation Plan  
 **Version:** 1.0  
 **Status:** Ready for implementation  
-**Source of Truth:** This document defines the technical approach for implementing V1 of the Notes App.
+**Source of Truth:** This document defines the technical approach for implementing V1 of Notable.
 
 ---
 
@@ -52,7 +52,7 @@
 
 # 1. Purpose
 
-The purpose of this document is to translate the Notes App Project Specification v1 into a concrete technical implementation plan.
+The purpose of this document is to translate the Notable Project Specification v1 into a concrete technical implementation plan.
 
 The Project Specification answers:
 
@@ -529,27 +529,31 @@ This is **important**.
 > This is a quote.
 ```
 
-There are two conceptual modes:
+There is one note body, and Markdown is its storage format rather than its interface. Both directions are explicit:
 
-## Editing
+## Writing
 
 ```text
-Markdown text
+reader types into a document
       ↓
-Markdown editor
+Markdown (markdownToEditorHtml on open, editorDocumentToMarkdown on every edit)
+      ↓
+autosave, exports, storage
 ```
 
-## Viewing
+## Reading and previewing
 
 ```text
 Markdown
       ↓
-Markdown parser
+markdown-it + a task-list plugin
       ↓
-Rendered React/HTML
+document (TipTap schema)
+      ↓
+the editor's own drawing, editable or read-only
 ```
 
-V1 should use a reliable Markdown library rather than implementing a custom Markdown parser.
+The Preview tab is that same document with editing switched off, not a separate renderer. V1 uses markdown-it rather than a hand-written parser; the schema is declared once and shared by the parser and the serializer so they cannot disagree about a node's name.
 
 ---
 
@@ -1232,9 +1236,10 @@ AI output should be reviewed rather than blindly accepted.
 
 ## Phase 2D — Editor
 
-- Markdown editor
-- Markdown rendering
-- toolbar
+- rich text writing surface (TipTap)
+- Markdown in, Markdown out, no Markdown on screen
+- edit/preview over one document
+- toolbar and link form
 - autosave
 - timestamps
 
@@ -1424,7 +1429,7 @@ Portfolio Presentation
 
 ## Document Control
 
-**Project:** Notes App  
+**Project:** Notable  
 **Document:** Technical Implementation Plan  
 **Version:** 1.0  
 **Phase:** 2  

@@ -1,4 +1,4 @@
-# Notes App — Project Specification v1
+# Notable — Project Specification v1
 
 > **Portfolio Side Project #1**  
 > **Status:** Specification v1 — Ready for Implementation Planning  
@@ -45,7 +45,7 @@
 
 # 1. Project Overview
 
-The **Notes App** is the first side project in the portfolio project roadmap.
+The **Notable** app is the first side project in the portfolio project roadmap.
 
 The initial application will be a responsive, highly customizable digital notes and personal workspace application. It will be inspired by the flexibility of products such as Notion while deliberately emphasizing the feeling and freedom of a physical notebook, journal, or personal workspace.
 
@@ -1172,7 +1172,7 @@ The application should be visually interesting enough to stand out in a portfoli
 
 ## Current Status
 
-**Project:** Notes App  
+**Project:** Notable  
 **Project Number:** #1  
 **Specification:** v1.0  
 **Status:** Ready for Implementation Planning
@@ -1231,7 +1231,7 @@ Only after the technical implementation plan is established should we initialize
 
 ## Document Control
 
-**Document:** Notes App — Project Specification  
+**Document:** Notable — Project Specification  
 **Version:** 1.0  
 **Project:** Portfolio Side Project #1  
 **Status:** Approved for Implementation Planning  

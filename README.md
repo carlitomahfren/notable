@@ -1,4 +1,11 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Notable
+
+A personal notebook and workspace: plain text notes written in Markdown, pinned, tagged, and
+stored in the browser. There is no account and nothing leaves the device.
+
+Built with [Next.js](https://nextjs.org) (App Router, Turbopack) and TypeScript, with
+[Tiptap](https://tiptap.dev) as the editor engine. See `docs/project-specification-v1.md` for the
+product specification and `docs/technical-implementation-plan-v1.md` for the architecture.
 
 ## Getting Started
 
@@ -16,9 +23,18 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Scripts
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Starts the development server |
+| `npm run build` | Production build |
+| `npm run start` | Serves the production build |
+| `npm run lint` | ESLint |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm test` | Vitest suite |
 
 ## Learn More
 
