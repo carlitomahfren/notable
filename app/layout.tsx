@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AppProviders } from "@/components/providers/app-providers";
+import { AppSplash } from "@/components/splash/app-splash";
 import { THEME_BOOTSTRAP_SCRIPT } from "@/lib/theme/theme-bootstrap";
 import "./globals.css";
 
@@ -37,6 +38,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         <script dangerouslySetInnerHTML={{ __html: THEME_BOOTSTRAP_SCRIPT }} />
       </head>
       <body className="min-h-full flex flex-col">
+        {/* The entrance overlay mounts once per full document load; soft
+            navigation keeps the layout mounted and spares a second run. */}
+        <AppSplash />
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

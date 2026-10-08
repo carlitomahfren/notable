@@ -7,12 +7,16 @@
  * panel entry, and the theme thumb all feel like the same app. Both are fast on
  * purpose: this is feedback for a click, not a transition between pages.
  *
+ * `--ease-enter` is the doorway variant: a gentler settle used where something
+ * is being presented (currently the entry splash) rather than acknowledged.
+ *
  * `prefers-reduced-motion` at the end of this file flattens every transition
  * and animation, so no rule needs its own guard.
  */
 :root {
   --motion-fast: 200ms;
   --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 /*
@@ -3270,6 +3274,92 @@ body {
   }
 }
 
+/*
+ * ENTRY SPLASH
+ *
+ * A one-shot brand note for a fresh document load, staged with the same motion
+ * vocabulary the interface already uses: transitions only, no keyframes, so the
+ * reduced-motion block below flattens it exactly like search expansion.
+ *
+ * The overlay is fixed and pointer-transparent. It never holds the app back:
+ * content paints and reacts underneath it from the first frame, and the reveal
+ * is decorative. The wordmark reuses the top bar's typography, enlarged, with
+ * an accent rule that draws in beneath it.
+ *
+ * The component in `app/layout.tsx` frames this in two stages so the hidden
+ * ("before") state is painted before `data-state="entering"` applies.
+ *
+ * Cadence: ~250ms wipe + ~40ms settle overlap, the rule draws at ~260ms, the
+ * mark holds steady until the ~2.1s mark, then the overlay dissolves over
+ * 450ms and the component releases it at ~2.7s.
+ */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--background);
+  pointer-events: none;
+  opacity: 1;
+  /*
+   * Holds the wordmark steady through the whole reveal, then dissolves slowly
+   * so the app lifts into place rather than snapping in. The long delay is the
+   * presentation hold; the 450ms duration is a deliberate carve-out from the
+   * 150-250ms interface budget (see globals-accessibility.test.ts).
+   */
+  transition: opacity 450ms var(--ease-standard) 2100ms;
+}
+
+.app-splash__inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-tight);
+}
+
+.app-splash__mark {
+  font-size: clamp(1.75rem, 7vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--foreground);
+  clip-path: inset(0 100% 0 0);
+  opacity: 0;
+  /* A ~12px settle into place: 0.75rem, the tight step of the vertical rhythm. */
+  transform: translateY(var(--space));
+  transition:
+    clip-path 250ms var(--ease-enter) 0ms,
+    opacity 220ms var(--ease-standard) 40ms,
+    transform 220ms var(--ease-standard) 40ms;
+}
+
+.app-splash__rule {
+  inline-size: clamp(3rem, 16vw, 6rem);
+  block-size: 2px;
+  border-radius: var(--radius-inline);
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  /* Draws in just as the wordmark finishes its wipe. */
+  transition: transform 240ms var(--ease-standard) 260ms;
+}
+
+.app-splash[data-state="entering"] {
+  /* Holds through the reveal, then dissolves before the node is removed. */
+  opacity: 0;
+}
+
+.app-splash[data-state="entering"] .app-splash__mark {
+  clip-path: inset(0 0 0 0);
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.app-splash[data-state="entering"] .app-splash__rule {
+  transform: scaleX(1);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -3278,5 +3368,31 @@ body {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+
+  /*
+   * Under reduced motion the splash is presented, not performed: the wordmark
+   * and its rule appear at once and hold briefly, then leave, so a
+   * reduced-motion reader sees the mark for a calm moment - not the long
+   * 2.5s+ sequence that motion users get. The global `transition-duration`
+   * override above flattens every change, and the mark/rule delays are
+   * dropped; the overlay's own delay is shortened (rather than removed) so
+   * the presentation is a short still, not a flash that vanishes in the same
+   * frame it appears.
+   */
+  .app-splash {
+    transition-delay: 700ms !important;
+  }
+
+  .app-splash__mark {
+    transition-delay: 0ms !important;
+    clip-path: inset(0 0 0 0) !important;
+    opacity: 1 !important;
+    transform: translateY(0) !important;
+  }
+
+  .app-splash__rule {
+    transition-delay: 0ms !important;
+    transform: scaleX(1) !important;
   }
 }

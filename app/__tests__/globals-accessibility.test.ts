@@ -316,6 +316,52 @@ describe("motion", () => {
   })
 })
 
+describe("entry splash", () => {
+  it("lays a full-viewport overlay that never blocks the app underneath", () => {
+    const overlay = rules.find((rule) => rule.selectors.includes(".app-splash"))
+
+    expect(overlay?.body).toContain("position: fixed")
+    expect(overlay?.body).toContain("inset: 0")
+    expect(overlay?.body).toContain("background: var(--background)")
+    expect(overlay?.body).toContain("pointer-events: none")
+  })
+
+  it("reveals the wordmark on the app's own colours and easing", () => {
+    const mark = rules.find((rule) => rule.selectors.includes(".app-splash__mark"))
+
+    expect(mark?.body).toContain("color: var(--foreground)")
+    expect(mark?.body).toContain("clip-path: inset(0 100% 0 0)")
+    expect(mark?.body).toContain("var(--ease-enter)")
+    expect(mark?.body).toContain("var(--ease-standard)")
+  })
+
+  it("draws the accent rule from the theme's own accent", () => {
+    const rule = rules.find((rule) => rule.selectors.includes(".app-splash__rule"))
+
+    expect(rule?.body).toContain("background: var(--accent)")
+    expect(rule?.body).toContain("transform: scaleX(0)")
+  })
+
+  it("presents the wordmark statically rather than animating it under reduced motion", () => {
+    const mark = rules.find(
+      (rule) =>
+        rule.media === "@media (prefers-reduced-motion: reduce)" &&
+        rule.selectors.includes(".app-splash__mark"),
+    )
+    const rule = rules.find(
+      (rule) =>
+        rule.media === "@media (prefers-reduced-motion: reduce)" &&
+        rule.selectors.includes(".app-splash__rule"),
+    )
+
+    expect(mark?.body).toContain("transition-delay: 0ms !important")
+    expect(mark?.body).toContain("clip-path: inset(0 0 0 0) !important")
+    expect(mark?.body).toContain("opacity: 1 !important")
+    expect(mark?.body).toContain("transform: translateY(0) !important")
+    expect(rule?.body).toContain("transform: scaleX(1) !important")
+  })
+})
+
 describe("focus visibility", () => {
   it("draws a focus ring on keyboard focus", () => {
     const focusRule = rules.find((rule) =>
@@ -846,9 +892,23 @@ it("retires the old header delete button entirely", () => {
   })
 
   it("keeps the interface motion inside the shared duration budget", () => {
-    const durations = [
-      ...stripped.matchAll(/transition:\s*[^;]*?(\d+)ms/g),
-    ].map((match) => Number(match[1]))
+    /*
+     * One deliberate carve-out: the entry splash's overlay dissolve is 450ms by
+     * design so the presentation lifts away slowly instead of snapping shut
+     * (see the `transition` comment on `.app-splash` in globals.css). No other
+     * selector in the stylesheet may exceed the shared 150-250ms window.
+     */
+    const durations: number[] = []
+
+    for (const rule of rules) {
+      if (rule.selectors.includes(".app-splash")) {
+        continue
+      }
+
+      for (const match of rule.body.matchAll(/transition:\s*[^;]*?(\d+)ms/g)) {
+        durations.push(Number(match[1]))
+      }
+    }
 
     expect(durations.length).toBeGreaterThan(0)
 
