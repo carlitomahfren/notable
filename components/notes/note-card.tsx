@@ -1,4 +1,5 @@
 import Link from "next/link"
+import type { ReactNode } from "react"
 import { Pin, PinOff, Trash2 } from "lucide-react"
 
 import type { Note } from "@/types/note"
@@ -21,6 +22,10 @@ export interface NoteCardProps {
   onSelect: (id: string) => void
   onTogglePin: (id: string) => void
   onDelete: (id: string) => void
+  /** A control to start a drag with, rendered first in the actions column. */
+  dragHandle?: ReactNode
+  /** Renders only the note's content, for the drag overlay. */
+  dragOverlay?: boolean
 }
 
 /**
@@ -28,7 +33,8 @@ export interface NoteCardProps {
  *
  * The card is a link, so the tick and the two actions are siblings of it rather than
  * descendants. A control nested inside the link would be activated by a click meant
- * for it, which is how a delete turns into an open.
+ * for it, which is how a delete turns into an open. The row itself, the `<li>`, is
+ * owned by the sortable wrapper so a drag transform can live on it.
  */
 export function NoteCard({
   note,
@@ -38,6 +44,8 @@ export function NoteCard({
   onSelect,
   onTogglePin,
   onDelete,
+  dragHandle,
+  dragOverlay = false,
 }: NoteCardProps) {
   const excerpt = getNoteExcerpt(note)
   const title = getDisplayTitle(note)
@@ -47,21 +55,23 @@ export function NoteCard({
   const deleteLabel = `Delete ${title}`
 
   return (
-    <li className="note-card__item" data-selected={isSelected ? "true" : "false"}>
+    <>
       {/*
         The tick is a real checkbox rather than a styled icon, so it is reachable by
         keyboard and announced as a control with a state. The label is the target, so
         the box can stay small while the thing a thumb aims at does not.
       */}
-      <label className="note-card__select">
-        <input
-          type="checkbox"
-          className="note-card__select-input"
-          checked={isSelected}
-          onChange={() => onSelect(note.id)}
-        />
-        <span className="visually-hidden">{selectLabel}</span>
-      </label>
+      {!dragOverlay && (
+        <label className="note-card__select">
+          <input
+            type="checkbox"
+            className="note-card__select-input"
+            checked={isSelected}
+            onChange={() => onSelect(note.id)}
+          />
+          <span className="visually-hidden">{selectLabel}</span>
+        </label>
+      )}
 
       <Link
         href={`/notes/${note.id}`}
@@ -112,46 +122,50 @@ export function NoteCard({
         targets side by side would take a third of a 20rem list pane, which is the
         width a title has to be read in.
       */}
-      <span className="note-card__actions">
-        <button
-          type="button"
-          className="note-card__pin"
-          onClick={() => onTogglePin(note.id)}
-          disabled={isBusy}
-          /*
-           * The accessible name states the action and the icon changes with the
-           * state, so `aria-pressed` would only contradict it: a screen reader
-           * would announce "Unpin Alpha, toggle button, pressed". The state is
-           * already carried by the label text and by the filled icon.
-           */
-          aria-label={note.isPinned ? `Unpin ${title}` : `Pin ${title}`}
-          title={note.isPinned ? `Unpin ${title}` : `Pin ${title}`}
-        >
-          <span aria-hidden="true">
-            {note.isPinned ? (
-              <Pin className="note-card__pin-icon" />
-            ) : (
-              <PinOff className="note-card__pin-icon" />
-            )}
-          </span>
-        </button>
+      {!dragOverlay && (
+        <span className="note-card__actions">
+          {dragHandle}
 
-        {/*
-          Deleting from the card asks the same question the editor asks and removes
-          the same way. It is an icon, so the name comes from the label, and the
-          dialog is where the consequence is spelled out.
-        */}
-        <button
-          type="button"
-          className="note-card__delete"
-          onClick={() => onDelete(note.id)}
-          disabled={isBusy}
-          aria-label={deleteLabel}
-          title={deleteLabel}
-        >
-          <Trash2 aria-hidden="true" className="note-card__delete-icon" />
-        </button>
-      </span>
-    </li>
+          <button
+            type="button"
+            className="note-card__pin"
+            onClick={() => onTogglePin(note.id)}
+            disabled={isBusy}
+            /*
+             * The accessible name states the action and the icon changes with the
+             * state, so `aria-pressed` would only contradict it: a screen reader
+             * would announce "Unpin Alpha, toggle button, pressed". The state is
+             * already carried by the label text and by the filled icon.
+             */
+            aria-label={note.isPinned ? `Unpin ${title}` : `Pin ${title}`}
+            title={note.isPinned ? `Unpin ${title}` : `Pin ${title}`}
+          >
+            <span aria-hidden="true">
+              {note.isPinned ? (
+                <Pin className="note-card__pin-icon" />
+              ) : (
+                <PinOff className="note-card__pin-icon" />
+              )}
+            </span>
+          </button>
+
+          {/*
+            Deleting from the card asks the same question the editor asks and removes
+            the same way. It is an icon, so the name comes from the label, and the
+            dialog is where the consequence is spelled out.
+          */}
+          <button
+            type="button"
+            className="note-card__delete"
+            onClick={() => onDelete(note.id)}
+            disabled={isBusy}
+            aria-label={deleteLabel}
+            title={deleteLabel}
+          >
+            <Trash2 aria-hidden="true" className="note-card__delete-icon" />
+          </button>
+        </span>
+      )}
+    </>
   )
 }

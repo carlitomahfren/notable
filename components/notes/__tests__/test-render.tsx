@@ -40,6 +40,36 @@ export async function flush(times = 4): Promise<void> {
   }
 }
 
+/** Yields to a macrotask (a timer) inside `act`, so listeners dnd-kit attaches on a `setTimeout` are in place. */
+export async function wait(duration = 0): Promise<void> {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, duration))
+  })
+
+  await flush()
+}
+
+/**
+ * Presses a key on an element the way a keyboard user would.
+ *
+ * The whole drag-and-drop keyboard interaction is driven by `event.code`, not
+ * by `event.key`, so the physical key has to be named as well.
+ */
+export async function keyDown(element: Element, code: string): Promise<void> {
+  await act(async () => {
+    element.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: code === "Space" ? " " : code,
+        code,
+        bubbles: true,
+        cancelable: true,
+      }),
+    )
+  })
+
+  await flush()
+}
+
 export async function unmountAll(): Promise<void> {
   await act(async () => {
     for (const root of mounted.splice(0)) {

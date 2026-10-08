@@ -55,16 +55,17 @@ export function filterNotes(notes: readonly Note[], filter: NoteFilter): Note[] 
   return [...notes]
 }
 
+/**
+ * The note list is in manual order: the `order` field is the display order, and
+ * `isPinned` marks a note without ever moving it. A tie is broken by id so the
+ * order is deterministic even if storage was edited by hand.
+ */
 export function sortNotes(notes: readonly Note[]): Note[] {
   return [...notes].sort((a, b) => {
-    if (a.isPinned !== b.isPinned) {
-      return a.isPinned ? -1 : 1
-    }
+    const byOrder = a.order - b.order
 
-    const byUpdatedAt = Date.parse(b.updatedAt) - Date.parse(a.updatedAt)
-
-    if (byUpdatedAt !== 0) {
-      return byUpdatedAt
+    if (byOrder !== 0) {
+      return byOrder
     }
 
     return a.id.localeCompare(b.id)

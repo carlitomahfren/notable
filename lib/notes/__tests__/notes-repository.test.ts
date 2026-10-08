@@ -32,6 +32,7 @@ const validNote = {
   createdAt: "2026-01-01T00:00:00.000Z",
   updatedAt: "2026-01-01T00:00:00.000Z",
   isPinned: false,
+  order: 0,
   tags: ["school"],
 }
 
@@ -219,6 +220,41 @@ describe("LocalStorageNotesRepository malformed storage", () => {
     await expect(
       subject.create({ title: "x", content: "y", tags: [] }),
     ).rejects.toThrow(NotesStorageError)
+  })
+})
+
+describe("LocalStorageNotesRepository legacy storage", () => {
+  const legacyNote = (overrides: Record<string, unknown> = {}) => {
+    const note: Record<string, unknown> = { ...validNote }
+    delete note.order
+
+    return { ...note, ...overrides }
+  }
+
+  it("gives stored legacy notes the order their slots already hold", async () => {
+    writeRaw(JSON.stringify([legacyNote({ title: "First" }), legacyNote({ title: "Second" })]))
+
+    const notes = await repository().getAll()
+
+    expect(notes.map((note) => note.order)).toEqual([0, 1])
+    expect(notes.map((note) => note.title)).toEqual(["First", "Second"])
+  })
+
+  it("persists the migration so the next read is a plain read", async () => {
+    writeRaw(JSON.stringify([legacyNote()]))
+
+    await repository().getAll()
+
+    for (const stored of JSON.parse(readRaw() as string) as Record<string, unknown>[]) {
+      expect(typeof stored.order).toBe("number")
+    }
+  })
+
+  it("still throws when a stored entry is neither current nor legacy", async () => {
+    writeRaw(JSON.stringify([legacyNote(), { foo: "bar" }]))
+
+    await expect(repository().getAll()).rejects.toThrow(NotesStorageError)
+    expect(readRaw()).toBe(JSON.stringify([legacyNote(), { foo: "bar" }]))
   })
 })
 

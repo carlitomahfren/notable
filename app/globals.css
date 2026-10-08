@@ -1100,6 +1100,19 @@ body {
 }
 
 /*
+ * While a note is being dragged the original row stays put, dimmed, so the
+ * floating copy and the gap it is headed for are the only motion on screen.
+ */
+.note-card__item[data-dragging="true"] .note-card {
+  opacity: 0.4;
+}
+
+.note-card__item[data-dragging="true"] .note-card__select,
+.note-card__item[data-dragging="true"] .note-card__actions {
+  opacity: 0.4;
+}
+
+/*
  * The label is the target and the box inside it is small, so a thumb has 44px to aim
  * at without the tick itself growing into the card's text column.
  */
@@ -1238,6 +1251,53 @@ body {
   align-items: center;
   justify-content: center;
   gap: 0.125rem;
+}
+
+/*
+ * The grip starts a drag and nothing else, so it looks the part: the pin and
+ * delete are buttons that ask, this one is a handle that moves. `touch-action:
+ * none` stops the browser from turning a drag on the handle into a scroll.
+ */
+.note-card__drag {
+  flex: none;
+  inline-size: 2.75rem;
+  min-inline-size: 2.75rem;
+  min-block-size: 2.75rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  color: var(--muted-foreground);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  cursor: grab;
+  touch-action: none;
+}
+
+.note-card__drag:active {
+  cursor: grabbing;
+}
+
+.note-card__drag:hover {
+  background: var(--control-hover);
+  color: var(--foreground);
+}
+
+.note-card__drag-icon {
+  inline-size: 1.125rem;
+  block-size: 1.125rem;
+}
+
+/*
+ * The copy that follows the pointer during a drag. The card is built to sit in
+ * a row, so the overlay gives it a surface of its own to float as.
+ */
+.note-card__overlay {
+  border-radius: var(--radius-md);
+  background: var(--control-selected);
+  border: 1px solid var(--border-strong);
+  box-shadow: 0 12px 28px -14px rgb(0 0 0 / 0.5);
+  cursor: grabbing;
 }
 
 /*

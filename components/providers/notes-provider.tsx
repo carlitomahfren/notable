@@ -26,6 +26,7 @@ export interface NotesActions {
   updateNote(id: string, patch: NoteUpdate): Promise<Note>
   deleteNote(id: string): Promise<void>
   togglePin(id: string): Promise<Note>
+  reorderNotes(orderedIds: readonly string[]): Promise<Note[]>
   retryLoad(): Promise<void>
   clearMutationError(): void
 }
@@ -140,6 +141,17 @@ export function NotesProvider({
     [runMutation, service],
   )
 
+  const reorderNotes = useCallback(
+    (orderedIds: readonly string[]) =>
+      runMutation(async () => {
+        const notes = await service.reorderNotes(orderedIds)
+        dispatch({ type: "notesReordered", notes })
+
+        return notes
+      }),
+    [runMutation, service],
+  )
+
   const retryLoad = useCallback(() => runLoad(), [runLoad])
 
   const clearMutationError = useCallback(() => {
@@ -152,6 +164,7 @@ export function NotesProvider({
       updateNote,
       deleteNote,
       togglePin,
+      reorderNotes,
       retryLoad,
       clearMutationError,
     }),
@@ -160,6 +173,7 @@ export function NotesProvider({
       updateNote,
       deleteNote,
       togglePin,
+      reorderNotes,
       retryLoad,
       clearMutationError,
     ],

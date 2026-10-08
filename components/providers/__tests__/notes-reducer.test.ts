@@ -222,6 +222,33 @@ describe("notesReducer mutation transitions", () => {
     expect(before.notes).toEqual([note])
   })
 
+  it("replaces notes in the requested order on reorder", () => {
+    const first = makeNote()
+    const second = makeNote()
+    const third = makeNote()
+    const state = notesReducer(loadedState([first, second, third]), {
+      type: "notesReordered",
+      notes: [third, first, second],
+    })
+
+    expect(state.notes.map((note) => note.id)).toEqual([
+      third.id,
+      first.id,
+      second.id,
+    ])
+    expect(state.status).toBe("ready")
+  })
+
+  it("does not mutate the previous state on reorder", () => {
+    const first = makeNote()
+    const second = makeNote()
+    const before = loadedState([first, second])
+
+    notesReducer(before, { type: "notesReordered", notes: [second, first] })
+
+    expect(before.notes).toEqual([first, second])
+  })
+
   it("does not mutate the notes array passed to loadSucceeded", () => {
     const notes = [makeNote()]
     const state = notesReducer(initialNotesState, {

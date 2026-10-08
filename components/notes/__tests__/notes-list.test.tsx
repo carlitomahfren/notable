@@ -9,6 +9,7 @@ import {
   byLabelText,
   click,
   flush,
+  keyDown,
   navButton,
   query,
   queryAll,
@@ -17,6 +18,7 @@ import {
   tagFilter,
   type,
   unmountAll,
+  wait,
 } from "./test-render"
 
 import {
@@ -120,7 +122,7 @@ describe("note list selection", () => {
 })
 
 describe("workspace views", () => {
-  it("shows every note in the all-notes view, pinned first", async () => {
+  it("shows every note in the manual order, pinned notes included", async () => {
     await seedStorage([
       makeNote({ title: "Alpha" }),
       makeNote({ title: "Beta", isPinned: true }),
@@ -128,7 +130,7 @@ describe("workspace views", () => {
 
     const container = await renderWithProviders(listUi())
 
-    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
+    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
   })
 
   it("shows only pinned notes after selecting the pinned view", async () => {
@@ -155,7 +157,7 @@ describe("workspace views", () => {
     await click(navButton("Pinned") as HTMLElement)
     await click(navButton("All Notes") as HTMLElement)
 
-    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
+    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
   })
 
   it("marks the active view for assistive technology", async () => {
@@ -245,17 +247,14 @@ describe("tag filtering", () => {
       makeNote({
         title: "Alpha",
         tags: ["work"],
-        updatedAt: "2026-01-01T00:00:00.000Z",
       }),
       makeNote({
         title: "Beta",
         tags: ["ideas"],
-        updatedAt: "2026-02-01T00:00:00.000Z",
       }),
       makeNote({
         title: "Gamma",
         tags: ["work"],
-        updatedAt: "2026-03-01T00:00:00.000Z",
       }),
     ])
 
@@ -263,7 +262,7 @@ describe("tag filtering", () => {
 
     await selectTag("work")
 
-    expect(renderedTitles(container)).toEqual(["Gamma", "Alpha"])
+    expect(renderedTitles(container)).toEqual(["Alpha", "Gamma"])
 
     await selectTag("ideas")
 
@@ -431,21 +430,15 @@ describe("search interaction", () => {
 })
 
 describe("pin interaction", () => {
-  it("pins a note through the toggle action and re-sorts it first", async () => {
-    const alpha = makeNote({
-      title: "Alpha",
-      updatedAt: "2026-01-01T00:00:00.000Z",
-    })
-    const beta = makeNote({
-      title: "Beta",
-      updatedAt: "2026-02-01T00:00:00.000Z",
-    })
+  it("pins a note without changing its position in the list", async () => {
+    const alpha = makeNote({ title: "Alpha" })
+    const beta = makeNote({ title: "Beta" })
 
     await seedStorage([alpha, beta])
 
     const container = await renderWithProviders(listUi())
 
-    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
+    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
 
     await click(byLabelText("Pin Alpha") as HTMLElement)
 
@@ -519,7 +512,7 @@ describe("pin interaction", () => {
     )
   })
 
-  it("keeps a pinned note out of the unpinned tag view results correctly", async () => {
+  it("shows pinned notes of a tag in their manual positions", async () => {
     await seedStorage([
       makeNote({ title: "Alpha", tags: ["work"] }),
       makeNote({ title: "Beta", tags: ["work"], isPinned: true }),
@@ -529,7 +522,131 @@ describe("pin interaction", () => {
 
     await selectTag("work")
 
-    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
+    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
+  })
+})
+
+describe("note reordering", () => {
+  let getBoundingClientRect: Element["getBoundingClientRect"] | null = null
+
+  beforeEach(() => {
+    getBoundingClientRect = Element.prototype.getBoundingClientRect
+
+    /*
+     * jsdom lays nothing out, so every rect is an empty box and a keyboard move
+     * has no "below" to move towards. Rows are given a plausible stack so the
+     * keyboard sensor has something to find: the nth row sits under the n-1th.
+     */
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+      function rectFor(this: Element) {
+        const rows = queryAll(".note-card__item")
+        const index = rows.indexOf(this as HTMLElement)
+        const top = index === -1 ? 0 : index * 120
+
+        return {
+          x: 0,
+          y: top,
+          left: 0,
+          top,
+          right: 480,
+          bottom: top + 100,
+          width: 480,
+          height: 100,
+          toJSON: () => "",
+        } as DOMRect
+      },
+    )
+  })
+
+  afterEach(() => {
+    if (getBoundingClientRect !== null) {
+      Element.prototype.getBoundingClientRect = getBoundingClientRect
+      getBoundingClientRect = null
+    }
+    vi.restoreAllMocks()
+  })
+
+  it("renders notes in their stored manual order", async () => {
+    await seedStorage([
+      makeNote({ title: "Third", order: 2 }),
+      makeNote({ title: "First", order: 0 }),
+      makeNote({ title: "Second", order: 1 }),
+    ])
+
+    const container = await renderWithProviders(listUi())
+
+    expect(renderedTitles(container)).toEqual(["First", "Second", "Third"])
+  })
+
+  it("gives every note a drag handle named after it", async () => {
+    await seedStorage([makeNote({ title: "Alpha" }), makeNote({ title: "Beta" })])
+
+    const container = await renderWithProviders(listUi())
+
+    expect(byLabelText("Reorder Alpha", container)).not.toBeNull()
+    expect(byLabelText("Reorder Beta", container)).not.toBeNull()
+  })
+
+  it("holds the drag listeners on the handle, never on the link", async () => {
+    const note = makeNote({ title: "Alpha" })
+    await seedStorage([note])
+
+    const container = await renderWithProviders(listUi())
+    const handle = byLabelText("Reorder Alpha", container)
+    const link = query<HTMLAnchorElement>("a.note-card", container)
+
+    expect(handle?.getAttribute("aria-roledescription")).not.toBeNull()
+    expect(link?.closest("[aria-roledescription]")).toBeNull()
+  })
+
+  it("moves a note with the keyboard and saves the result", async () => {
+    const alpha = makeNote({ title: "Alpha" })
+    const beta = makeNote({ title: "Beta" })
+
+    await seedStorage([alpha, beta])
+
+    const list = await renderWithProviders(listUi())
+    const handle = byLabelText("Reorder Beta", list)
+
+    if (handle === null) {
+      throw new Error("drag handle not found")
+    }
+
+    await keyDown(handle, "Enter")
+    await wait()
+    await keyDown(handle, "ArrowUp")
+    await keyDown(handle, "Enter")
+
+    expect(renderedTitles(list)).toEqual(["Beta", "Alpha"])
+    expect(storedNotes().map((note) => note.title)).toEqual([
+      "Beta",
+      "Alpha",
+    ])
+    expect(storedNotes().find((note) => note.title === "Beta")?.order).toBe(0)
+  })
+
+  it("tells assistive technology how to drag and which note is active", async () => {
+    await seedStorage([makeNote({ title: "Alpha" }), makeNote({ title: "Beta" })])
+
+    const list = await renderWithProviders(listUi())
+    const handle = byLabelText("Reorder Beta", list)
+
+    if (handle === null) {
+      throw new Error("drag handle not found")
+    }
+
+    const instructions = handle.getAttribute("aria-describedby")
+
+    expect(
+      document.getElementById(instructions ?? "")?.textContent,
+    ).toMatch(/pick up a draggable item/i)
+
+    await keyDown(handle, "Enter")
+    await wait()
+
+    expect(
+      query('[role="status"][aria-live]', document)?.textContent,
+    ).toContain("Beta")
   })
 })
 

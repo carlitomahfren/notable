@@ -321,12 +321,12 @@ describe("note card controls", () => {
     expect(names).toEqual(["Select Alpha", "Select Beta"])
   })
 
-  it("offers the same three ways back into the list on every card", async () => {
+  it("offers the same five controls on every card", async () => {
     const container = await renderList()
 
     for (const item of queryAll(".note-card__item", container)) {
-      // The link, the tick, pin, and delete.
-      expect(queryAll("a, input, button", item)).toHaveLength(4)
+      // The link, the tick, pin, delete, and the drag handle.
+      expect(queryAll("a, input, button", item)).toHaveLength(5)
     }
   })
 })
@@ -360,11 +360,12 @@ describe("live regions", () => {
      *
      * Three regions are allowed and each has earned it: the settled save state, the
      * search result count, and the name of a file that has just been written, which
-     * is otherwise an event the page cannot report at all.
+     * is otherwise an event the page cannot report at all. Reordering adds a fourth
+     * for the drag itself, and it stays silent until a note is picked up.
      */
     const liveRegions = queryAll('[aria-live], [role="status"], [role="alert"]', container)
 
-    expect(liveRegions.length).toBeLessThanOrEqual(3)
+    expect(liveRegions.length).toBeLessThanOrEqual(4)
 
     // The export announcement is silent until there is something to announce.
     expect(

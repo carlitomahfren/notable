@@ -1,4 +1,9 @@
-import type { Note, NoteInput, NoteUpdate } from "@/types/note"
+import {
+  type Note,
+  type NoteInput,
+  type NoteUpdate,
+  ValidationError,
+} from "@/types/note"
 import {
   NoteNotFoundError,
   type NotesRepository,
@@ -40,6 +45,32 @@ export class NotesService {
     }
 
     return this.repository.update(id, { isPinned: !current.isPinned })
+  }
+
+  async reorderNotes(orderedIds: readonly string[]): Promise<Note[]> {
+    const current = await this.repository.getAll()
+    const present = new Set(current.map((note) => note.id))
+    const seen = new Set<string>()
+
+    for (const id of orderedIds) {
+      if (seen.has(id) || !present.has(id)) {
+        throw new ValidationError(
+          "Reorder must include every note exactly once",
+        )
+      }
+
+      seen.add(id)
+    }
+
+    if (seen.size !== current.length) {
+      throw new ValidationError("Reorder must include every note exactly once")
+    }
+
+    if (current.every((note, index) => note.id === orderedIds[index])) {
+      return current
+    }
+
+    return this.repository.reorder(orderedIds)
   }
 
   private normalizePatch(patch: NoteUpdate): NoteUpdate {

@@ -93,6 +93,25 @@ export function describeNotesRepositoryContract(
         expect(reloaded?.tags).toEqual(["school"])
       })
 
+      it("assigns ascending orders to successive notes", async () => {
+        const first = await repository.create(input())
+        const second = await repository.create(input())
+
+        expect(first.order).toBeLessThan(second.order)
+      })
+
+      it("places a new note after every note already stored", async () => {
+        await repository.create(input({ title: "One" }))
+        await repository.create(input({ title: "Two" }))
+        const created = await repository.create(input({ title: "Three" }))
+
+        const notes = await repository.getAll()
+
+        expect(notes.find((note) => note.id === created.id)?.order).toBe(
+          Math.max(...notes.map((note) => note.order)),
+        )
+      })
+
       it("allows an empty title", async () => {
         const note = await repository.create(input({ title: "" }))
 
@@ -296,6 +315,105 @@ export function describeNotesRepositoryContract(
         const remaining = await repository.getAll()
         expect(remaining).toHaveLength(1)
         expect(remaining[0].id).toBe(second.id)
+      })
+    })
+
+    describe("reorder", () => {
+      it("returns the array in exactly the requested order", async () => {
+        const first = await repository.create(input({ title: "One" }))
+        const second = await repository.create(input({ title: "Two" }))
+        const third = await repository.create(input({ title: "Three" }))
+
+        const reordered = await repository.reorder([
+          third.id,
+          first.id,
+          second.id,
+        ])
+
+        expect(reordered.map((note) => note.id)).toEqual([
+          third.id,
+          first.id,
+          second.id,
+        ])
+      })
+
+      it("renumbers order to the new slots", async () => {
+        const first = await repository.create(input())
+        const second = await repository.create(input())
+
+        await repository.reorder([second.id, first.id])
+
+        const notes = await repository.getAll()
+
+        expect(notes.find((note) => note.id === first.id)?.order).toBe(1)
+        expect(notes.find((note) => note.id === second.id)?.order).toBe(0)
+      })
+
+      it("persists the new order across a reload", async () => {
+        const first = await repository.create(input({ title: "One" }))
+        const second = await repository.create(input({ title: "Two" }))
+
+        await repository.reorder([second.id, first.id])
+
+        const reloaded = await repository.getAll()
+
+        expect(reloaded.map((note) => note.title)).toEqual(["Two", "One"])
+      })
+
+      it("changes nothing for an unchanged order", async () => {
+        const first = await repository.create(input({ title: "One" }))
+        const second = await repository.create(input({ title: "Two" }))
+
+        const before = await repository.getAll()
+        const result = await repository.reorder([first.id, second.id])
+        const after = await repository.getAll()
+
+        expect(result.map((note) => note.id)).toEqual(
+          before.map((note) => note.id),
+        )
+        expect(after).toEqual(before)
+      })
+
+      it("does not touch timestamps or other fields", async () => {
+        const first = await repository.create(input({ title: "One" }))
+        const second = await repository.create(input({ title: "Two" }))
+
+        await repository.reorder([second.id, first.id])
+
+        const reloaded = await repository.getAll()
+
+        expect(reloaded.find((note) => note.id === first.id)?.updatedAt).toBe(
+          first.updatedAt,
+        )
+        expect(reloaded.find((note) => note.id === second.id)?.content).toBe(
+          second.content,
+        )
+      })
+
+      it("throws when the requested set is not exactly the stored set", async () => {
+        const first = await repository.create(input({ title: "One" }))
+        const second = await repository.create(input({ title: "Two" }))
+
+        await expect(repository.reorder([first.id])).rejects.toThrow()
+        await expect(repository.reorder([first.id, "missing"])).rejects.toThrow()
+        await expect(
+          repository.reorder([first.id, second.id, second.id]),
+        ).rejects.toThrow()
+      })
+
+      it("orders a note created after a reorder at the end", async () => {
+        const first = await repository.create(input({ title: "One" }))
+        const second = await repository.create(input({ title: "Two" }))
+        const third = await repository.create(input({ title: "Three" }))
+
+        await repository.reorder([third.id, first.id, second.id])
+
+        const created = await repository.create(input({ title: "Four" }))
+
+        const notes = await repository.getAll()
+
+        expect(notes[notes.length - 1].id).toBe(created.id)
+        expect(created.order).toBe(3)
       })
     })
   })

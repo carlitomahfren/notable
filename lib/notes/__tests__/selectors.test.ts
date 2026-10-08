@@ -135,47 +135,31 @@ describe("filterNotes", () => {
 })
 
 describe("sortNotes", () => {
-  it("puts pinned notes first", () => {
-    const older = makeNote({ updatedAt: "2026-03-01T00:00:00.000Z" })
-    const pinned = makeNote({
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      isPinned: true,
-    })
+  it("orders notes by their manual order field", () => {
+    const second = makeNote({ title: "Second", order: 1 })
+    const first = makeNote({ title: "First", order: 0 })
 
-    expect(sortNotes([older, pinned]).map((note) => note.id)).toEqual([
+    expect(sortNotes([second, first]).map((note) => note.id)).toEqual([
+      first.id,
+      second.id,
+    ])
+  })
+
+  it("keeps a pinned note in its manual position", () => {
+    const pinned = makeNote({ title: "Pinned", order: 2, isPinned: true })
+    const before = makeNote({ title: "Before", order: 1 })
+    const after = makeNote({ title: "After", order: 3 })
+
+    expect(sortNotes([before, pinned, after]).map((note) => note.id)).toEqual([
+      before.id,
       pinned.id,
-      older.id,
+      after.id,
     ])
   })
 
-  it("orders unpinned notes by updatedAt descending", () => {
-    const older = makeNote({ updatedAt: "2026-01-01T00:00:00.000Z" })
-    const newer = makeNote({ updatedAt: "2026-02-01T00:00:00.000Z" })
-
-    expect(sortNotes([older, newer]).map((note) => note.id)).toEqual([
-      newer.id,
-      older.id,
-    ])
-  })
-
-  it("orders pinned notes among themselves by updatedAt descending", () => {
-    const olderPinned = makeNote({
-      updatedAt: "2026-01-01T00:00:00.000Z",
-      isPinned: true,
-    })
-    const newerPinned = makeNote({
-      updatedAt: "2026-02-01T00:00:00.000Z",
-      isPinned: true,
-    })
-
-    expect(sortNotes([olderPinned, newerPinned]).map((note) => note.id)).toEqual(
-      [newerPinned.id, olderPinned.id],
-    )
-  })
-
-  it("breaks updatedAt ties deterministically by id", () => {
-    const first = makeNote({ updatedAt: "2026-01-01T00:00:00.000Z" })
-    const second = makeNote({ updatedAt: "2026-01-01T00:00:00.000Z" })
+  it("breaks order ties deterministically by id", () => {
+    const first = makeNote({ title: "A", order: 1 })
+    const second = makeNote({ title: "B", order: 1 })
     const expected = [first.id, second.id].sort()
 
     expect(sortNotes([first, second]).map((note) => note.id)).toEqual(expected)
@@ -183,8 +167,8 @@ describe("sortNotes", () => {
   })
 
   it("does not mutate the input array", () => {
-    const older = makeNote({ updatedAt: "2026-01-01T00:00:00.000Z" })
-    const newer = makeNote({ updatedAt: "2026-02-01T00:00:00.000Z" })
+    const older = makeNote({ order: 1 })
+    const newer = makeNote({ order: 2 })
     const input = [older, newer]
 
     sortNotes(input)
@@ -198,31 +182,34 @@ describe("sortNotes", () => {
 })
 
 describe("getVisibleNotes", () => {
-  it("applies pinned-first ordering with updatedAt descending", () => {
+  it("preserves the manual order through the all-notes view", () => {
     const notes = [
-      makeNote({ title: "Older", updatedAt: "2026-01-01T00:00:00.000Z" }),
-      makeNote({
-        title: "Pinned older",
-        updatedAt: "2026-01-01T00:00:00.000Z",
-        isPinned: true,
-      }),
-      makeNote({ title: "Newest", updatedAt: "2026-03-01T00:00:00.000Z" }),
-      makeNote({
-        title: "Pinned newest",
-        updatedAt: "2026-02-01T00:00:00.000Z",
-        isPinned: true,
-      }),
+      makeNote({ title: "Middle", order: 1 }),
+      makeNote({ title: "First", order: 0 }),
+      makeNote({ title: "Last", order: 2 }),
     ]
 
-    expect(getVisibleNotes(notes, {
-      filter: { kind: "all" },
-      searchQuery: "",
-    }).map((note) => note.title)).toEqual([
-      "Pinned newest",
-      "Pinned older",
-      "Newest",
-      "Older",
-    ])
+    expect(
+      getVisibleNotes(notes, {
+        filter: { kind: "all" },
+        searchQuery: "",
+      }).map((note) => note.title),
+    ).toEqual(["First", "Middle", "Last"])
+  })
+
+  it("keeps the manual order inside the pinned view", () => {
+    const notes = [
+      makeNote({ title: "Older pinned", order: 2, isPinned: true }),
+      makeNote({ title: "Unpinned", order: 0 }),
+      makeNote({ title: "Newer pinned", order: 1, isPinned: true }),
+    ]
+
+    expect(
+      getVisibleNotes(notes, {
+        filter: { kind: "pinned" },
+        searchQuery: "",
+      }).map((note) => note.title),
+    ).toEqual(["Newer pinned", "Older pinned"])
   })
 
   it("combines search with the pinned filter", () => {

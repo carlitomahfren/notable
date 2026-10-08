@@ -17,6 +17,7 @@ export type NotesAction =
   | { type: "mutationErrorCleared" }
   | { type: "noteUpserted"; note: Note }
   | { type: "noteDeleted"; id: string }
+  | { type: "notesReordered"; notes: Note[] }
 
 export const initialNotesState: NotesState = {
   status: "loading",
@@ -71,5 +72,8 @@ export function notesReducer(
         ...state,
         notes: state.notes.filter((note) => note.id !== action.id),
       }
+
+    case "notesReordered":
+      return { ...state, notes: [...action.notes] }
   }
 }

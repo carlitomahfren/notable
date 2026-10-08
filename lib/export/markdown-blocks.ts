@@ -16,7 +16,7 @@
 export type ExportBlock =
   | { kind: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; text: string }
   | { kind: "paragraph"; text: string }
-  | { kind: "listItem"; text: string; ordered: boolean }
+  | { kind: "listItem"; text: string; ordered: boolean; checked?: boolean }
   | { kind: "quote"; text: string }
   | { kind: "code"; text: string }
   | { kind: "rule" }
@@ -57,12 +57,6 @@ function joinLines(lines: readonly string[]): string {
   }
 
   return text
-}
-
-function stripTaskMarker(item: string): string {
-  const match = TASK_MARKER.exec(item)
-
-  return match === null ? item : (match[2] ?? "")
 }
 
 export function parseMarkdownBlocks(markdown: string): ExportBlock[] {
@@ -135,10 +129,16 @@ export function parseMarkdownBlocks(markdown: string): ExportBlock[] {
 
     if (unordered !== null || ordered !== null) {
       flushParagraph()
+
+      const item = (unordered?.[1] ?? ordered?.[1] ?? "").trim()
+      const task = TASK_MARKER.exec(item)
+
       blocks.push({
         kind: "listItem",
-        text: stripTaskMarker((unordered?.[1] ?? ordered?.[1] ?? "").trim()),
+        text: (task === null ? item : (task[2] ?? "")).trim(),
         ordered: ordered !== null,
+        // Only a task carries the word; an ordinary item has no state to report.
+        ...(task === null ? {} : { checked: (task[1] ?? " ").toUpperCase() === "X" }),
       })
       continue
     }
@@ -180,7 +180,8 @@ export function parseMarkdownBlocks(markdown: string): ExportBlock[] {
  *
  * Only the markers are dropped: link text is kept and the address goes after it, so
  * a link survives as text rather than turning into the bare URL or, worse, into
- * nothing at all.
+ * nothing at all. Fenced code is the one block left exactly as written, because its
+ * whole point is that the characters inside it are literal.
  */
 export function toPlainText(markdown: string): string {
   const out: string[] = []
@@ -189,25 +190,38 @@ export function toPlainText(markdown: string): string {
   for (const block of parseMarkdownBlocks(markdown)) {
     switch (block.kind) {
       case "heading":
-        out.push(block.text)
+        out.push(inlineToPlainText(block.text))
         break
 
       case "paragraph":
-        out.push(block.text)
+        out.push(inlineToPlainText(block.text))
         break
 
-      case "listItem":
+      case "listItem": {
+        const box =
+          block.checked === undefined
+            ? ""
+            : block.checked
+              ? "[x] "
+              : "[ ] "
+
         if (block.ordered) {
           orderedCount += 1
-          out.push(`${orderedCount}. ${block.text}`)
+          out.push(`${orderedCount}. ${box}${inlineToPlainText(block.text)}`)
         } else {
           orderedCount = 0
-          out.push(`- ${block.text}`)
+          out.push(`- ${box}${inlineToPlainText(block.text)}`)
         }
         break
+      }
 
       case "quote":
-        out.push(block.text.split("\n").map((line) => `> ${line}`).join("\n"))
+        out.push(
+          inlineToPlainText(block.text)
+            .split("\n")
+            .map((line) => `> ${line}`)
+            .join("\n"),
+        )
         break
 
       case "code":
@@ -220,33 +234,191 @@ export function toPlainText(markdown: string): string {
     }
   }
 
-  return inlineToPlainText(out.join("\n\n"))
+  return out.join("\n\n")
 }
 
-type InlineRule = readonly [
-  RegExp,
-  string | ((match: string, ...groups: string[]) => string),
-]
+/**
+ * One piece of inline text, with the formatting the author gave it.
+ *
+ * The pieces are flat rather than nested: a bold link is a link run that is also
+ * bold, not a link inside a bold. Formats that can only do one thing at a time then
+ * decide for themselves which flag they honour.
+ */
+export interface InlineRun {
+  text: string
+  bold?: boolean
+  italic?: boolean
+  strike?: boolean
+  /** Literal text: nothing inside it is a marker. */
+  code?: boolean
+  /** The address of a link; present only on link runs. */
+  href?: string
+}
 
-const INLINE: readonly InlineRule[] = [
-  // Images before links: `![alt](src)` contains the link pattern.
-  [/!\[([^\]]*)\]\([^)]*\)/g, "$1"],
-  [
-    /\[([^\]]*)\]\(([^)\s]*)(?:\s+"[^"]*")?\)/g,
-    (match: string, text: string, href: string) =>
-      text === "" || text === href ? href : `${text} (${href})`,
-  ],
-  [/`{1,3}([^`]*)`{1,3}/g, "$1"],
-  [/\*\*([^*]+)\*\*/g, "$1"],
-  [/\*([^*]+)\*/g, "$1"],
-  [/~~([^~]+)~~/g, "$1"],
-  [/ {2,}\n/g, "\n"],
-]
+interface InlineStyle {
+  bold?: boolean
+  italic?: boolean
+  strike?: boolean
+}
+
+const CODE_SPAN = /^`{1,3}([^`]*?)`{1,3}/
+const IMAGE = /^!\[([^\]]*)\]\([^)]*\)/
+const LINK = /^\[([^\]]*)\]\(([^)\s]*)(?:\s+"[^"]*")?\)/
+const ESCAPED_CHAR = /[\`*_~[\]!\\]/
+const WORD_CHAR = /[\p{L}\p{N}_]/u
+
+function isWordCharacter(character: string | undefined): boolean {
+  return character !== undefined && WORD_CHAR.test(character)
+}
+
+/**
+ * Reads inline markers into runs, honouring backslash escapes.
+ *
+ * Emphasis with an underscore is only real at a word boundary, so `snake_case`
+ * keeps its underscore while `_this one_` becomes italic. That is the one rule of
+ * CommonMark this parser takes trouble over, because it is the rule that decides
+ * whether a plain variable name comes out of an export mangled.
+ */
+function scanInline(text: string, style: InlineStyle, out: InlineRun[]): void {
+  let plain = ""
+  let index = 0
+
+  const flush = () => {
+    if (plain !== "") {
+      out.push({ text: plain, ...style })
+      plain = ""
+    }
+  }
+
+  while (index < text.length) {
+    const character = text[index] ?? ""
+
+    if (character === "\\" && ESCAPED_CHAR.test(text[index + 1] ?? "")) {
+      plain += text[index + 1]
+      index += 2
+      continue
+    }
+
+    if (character === "`") {
+      const code = CODE_SPAN.exec(text.slice(index))
+
+      if (code !== null) {
+        flush()
+        out.push({ text: code[1] ?? "", code: true, ...style })
+        index += code[0].length
+        continue
+      }
+    }
+
+    if (character === "!" && text[index + 1] === "[") {
+      const image = IMAGE.exec(text.slice(index))
+
+      if (image !== null) {
+        // An image has no page of its own in a text file, so only its words carry on.
+        plain += inlineToPlainText(image[1] ?? "")
+        index += image[0].length
+        continue
+      }
+    }
+
+    if (character === "[") {
+      const link = LINK.exec(text.slice(index))
+
+      if (link !== null) {
+        flush()
+        out.push({
+          text: inlineToPlainText(link[1] ?? ""),
+          href: link[2] ?? "",
+          ...style,
+        })
+        index += link[0].length
+        continue
+      }
+    }
+
+    const marker =
+      character === "*"
+        ? text.startsWith("**", index)
+          ? "**"
+          : "*"
+      : character === "_"
+        ? text.startsWith("__", index)
+          ? "__"
+          : "_"
+      : null
+
+    if (marker !== null) {
+      const from = index + marker.length
+      const close = text.indexOf(marker, from)
+
+      /*
+       * An underscore opens emphasis only where a word has not already begun, and
+       * closes only where one does not continue, so `snake_case` keeps its
+       * underscores while `_these two_` becomes italic.
+       */
+      const opensAtBoundary = marker[0] !== "_" || !isWordCharacter(text[index - 1])
+      const closesAtBoundary =
+        close === -1 || !isWordCharacter(text[close + marker.length])
+
+      if (close > from && opensAtBoundary && closesAtBoundary) {
+        flush()
+
+        // Two characters is strong, one is emphasis; either is kept from the
+        // emphasis already in force around it.
+        const nested: InlineStyle = { ...style }
+
+        if (marker.length === 2) {
+          nested.bold = true
+        } else {
+          nested.italic = true
+        }
+
+        scanInline(text.slice(from, close), nested, out)
+        index = close + marker.length
+        continue
+      }
+    }
+
+    if (text.startsWith("~~", index)) {
+      const close = text.indexOf("~~", index + 2)
+
+      if (close > index + 2) {
+        flush()
+        scanInline(text.slice(index + 2, close), { ...style, strike: true }, out)
+        index = close + 2
+        continue
+      }
+    }
+
+    plain += character
+    index += 1
+  }
+
+  flush()
+}
+
+export function parseInlineRuns(text: string): InlineRun[] {
+  const runs: InlineRun[] = []
+
+  scanInline(text, {}, runs)
+
+  return runs
+}
+
+/**
+ * What one run reads as in a format that cannot format: a link keeps its address
+ * next to its label, and everything else is simply its own words.
+ */
+export function inlineRunText(run: InlineRun): string {
+  if (run.href !== undefined) {
+    return run.text === "" || run.text === run.href
+      ? run.href
+      : `${run.text} (${run.href})`
+  }
+
+  return run.text
+}
 
 export function inlineToPlainText(text: string): string {
-  return INLINE.reduce((result, [pattern, replacement]) => {
-    return typeof replacement === "function"
-      ? result.replace(pattern, replacement)
-      : result.replace(pattern, replacement)
-  }, text)
+  return parseInlineRuns(text).map(inlineRunText).join("")
 }

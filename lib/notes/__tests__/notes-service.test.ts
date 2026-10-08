@@ -325,6 +325,63 @@ describe("NotesService togglePin", () => {
   })
 })
 
+describe("NotesService reorderNotes", () => {
+  it("reorders the notes through the repository", async () => {
+    const first = await service.createNote({ title: "One", content: "", tags: [] })
+    const second = await service.createNote({ title: "Two", content: "", tags: [] })
+
+    await service.reorderNotes([second.id, first.id])
+
+    expect((await service.getNotes()).map((note) => note.title)).toEqual([
+      "Two",
+      "One",
+    ])
+  })
+
+  it("is a no-op for an unchanged order and writes nothing", async () => {
+    const first = await service.createNote({ title: "One", content: "", tags: [] })
+    const second = await service.createNote({ title: "Two", content: "", tags: [] })
+
+    const before = JSON.stringify(
+      storage.getItem(NOTES_STORAGE_KEY) ?? "",
+    )
+    const result = await service.reorderNotes([first.id, second.id])
+
+    expect(JSON.stringify(storage.getItem(NOTES_STORAGE_KEY) ?? "")).toBe(before)
+    expect(result.map((note) => note.title)).toEqual(["One", "Two"])
+  })
+
+  it("does not touch updatedAt", async () => {
+    const first = await service.createNote({ title: "One", content: "", tags: [] })
+    const second = await service.createNote({ title: "Two", content: "", tags: [] })
+
+    await service.reorderNotes([second.id, first.id])
+
+    const reloaded = await service.getNotes()
+
+    expect(reloaded.find((note) => note.id === first.id)?.updatedAt).toBe(T0)
+    expect(reloaded.find((note) => note.id === second.id)?.updatedAt).toBe(T0)
+  })
+
+  it("rejects a list that is not exactly the stored notes", async () => {
+    const first = await service.createNote({ title: "One", content: "", tags: [] })
+
+    await expect(service.reorderNotes([])).rejects.toThrow(ValidationError)
+    await expect(
+      service.reorderNotes([first.id, "missing"]),
+    ).rejects.toThrow(ValidationError)
+    await expect(
+      service.reorderNotes([first.id, first.id]),
+    ).rejects.toThrow(ValidationError)
+  })
+
+  it("propagates repository errors", async () => {
+    corruptStorage()
+
+    await expect(service.reorderNotes([])).rejects.toThrow(NotesStorageError)
+  })
+})
+
 describe("NotesService getNotes", () => {
   it("returns an empty list when nothing is stored", async () => {
     await expect(service.getNotes()).resolves.toEqual([])

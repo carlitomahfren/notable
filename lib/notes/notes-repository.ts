@@ -1,6 +1,6 @@
 import type { Note, NoteInput, NoteUpdate } from "@/types/note"
 import { readJson, writeJson } from "@/lib/storage/local-storage"
-import { parseNotes } from "@/lib/notes/note-guard"
+import { migrateLegacyNotes, parseNotes } from "@/lib/notes/note-guard"
 
 export const NOTES_STORAGE_KEY = "notes-app.notes"
 
@@ -10,6 +10,8 @@ export interface NotesRepository {
   create(input: NoteInput): Promise<Note>
   update(id: string, input: NoteUpdate): Promise<Note>
   delete(id: string): Promise<void>
+  /** Rewrites the list order; the array it returns is the new stored order. */
+  reorder(orderedIds: readonly string[]): Promise<Note[]>
 }
 
 export class NotesStorageError extends Error {
@@ -57,11 +59,24 @@ export class LocalStorageNotesRepository implements NotesRepository {
 
     const notes = parseNotes(result.value)
 
-    if (notes === null) {
+    if (notes !== null) {
+      return notes
+    }
+
+    /*
+     * Notes written before ordering existed have no `order`. They are converted
+     * once, in place, and the conversion is persisted so the upgrade is visible
+     * to the next read instead of repeated on every load. Anything that is
+     * neither a current note nor a legacy note is still rejected outright.
+     */
+    const migrated = migrateLegacyNotes(result.value)
+
+    if (migrated === null) {
       throw new NotesStorageError("Stored notes contain an invalid note")
     }
 
-    return notes
+    this.persist(migrated)
+    return migrated
   }
 
   async getById(id: string): Promise<Note | null> {
@@ -72,6 +87,7 @@ export class LocalStorageNotesRepository implements NotesRepository {
   async create(input: NoteInput): Promise<Note> {
     const notes = await this.getAll()
     const timestamp = nowIso()
+    const order = notes.reduce((max, note) => Math.max(max, note.order), -1) + 1
 
     const note: Note = {
       id: createNoteId(),
@@ -80,6 +96,7 @@ export class LocalStorageNotesRepository implements NotesRepository {
       createdAt: timestamp,
       updatedAt: timestamp,
       isPinned: false,
+      order,
       tags: [...input.tags],
     }
 
@@ -137,6 +154,43 @@ export class LocalStorageNotesRepository implements NotesRepository {
     }
 
     this.persist(remaining)
+  }
+
+  async reorder(orderedIds: readonly string[]): Promise<Note[]> {
+    const notes = await this.getAll()
+
+    if (orderedIds.length !== notes.length) {
+      throw new NotesStorageError(
+        "Reorder must include every note exactly once",
+      )
+    }
+
+    const byId = new Map(notes.map((note) => [note.id, note]))
+    const seen = new Set<string>()
+
+    for (const id of orderedIds) {
+      if (seen.has(id) || !byId.has(id)) {
+        throw new NotesStorageError(
+          "Reorder must include every note exactly once",
+        )
+      }
+
+      seen.add(id)
+    }
+
+    // An unchanged order is a request that changes nothing, so nothing is written.
+    if (notes.every((note, index) => note.id === orderedIds[index])) {
+      return notes
+    }
+
+    const reordered = orderedIds.map((id, index) => ({
+      ...(byId.get(id) as Note),
+      order: index,
+    }))
+
+    this.persist(reordered)
+
+    return reordered
   }
 
   private persist(notes: Note[]): void {

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import {
   inlineToPlainText,
+  parseInlineRuns,
   parseMarkdownBlocks,
   toPlainText,
 } from "@/lib/export/markdown-blocks"
@@ -60,6 +61,16 @@ describe("reading Markdown into blocks", () => {
     expect(blocks.map((block) => (block.kind === "listItem" ? block.text : ""))).toEqual([
       "shipped",
       "not yet",
+    ])
+  })
+
+  it("remembers which tasks were ticked", () => {
+    const blocks = parseMarkdownBlocks("- [x] shipped\n- [ ] not yet\n- plain")
+
+    expect(blocks).toEqual([
+      { kind: "listItem", text: "shipped", ordered: false, checked: true },
+      { kind: "listItem", text: "not yet", ordered: false, checked: false },
+      { kind: "listItem", text: "plain", ordered: false },
     ])
   })
 
@@ -140,5 +151,64 @@ describe("writing text for formats that cannot format", () => {
 
   it("keeps a quote readable as a quote", () => {
     expect(toPlainText("> a line\n> and another")).toBe("> a line and another")
+  })
+
+  it("takes the markers out of an underscore as well as an asterisk", () => {
+    expect(inlineToPlainText("_italic_ and __bold__ and snake_case")).toBe(
+      "italic and bold and snake_case",
+    )
+  })
+
+  it("keeps an escaped marker as the character it is", () => {
+    expect(inlineToPlainText("\\*not bold\\*")).toBe("*not bold*")
+  })
+
+  it("leaves the state of a checklist in the text", () => {
+    expect(toPlainText("- [x] shipped\n- [ ] waiting")).toBe(
+      "- [x] shipped\n\n- [ ] waiting",
+    )
+  })
+
+  it("leaves a fenced block exactly as it was written", () => {
+    // The whole point of a code block is that its characters mean nothing.
+    expect(toPlainText("```\nconst a = _x_ and *y*\n```")).toBe(
+      "const a = _x_ and *y*",
+    )
+  })
+})
+
+describe("reading a line into pieces", () => {
+  it("names what each piece of a line is", () => {
+    expect(parseInlineRuns("plain **strong** *em* `code`")).toEqual([
+      { text: "plain " },
+      { text: "strong", bold: true },
+      { text: " " },
+      { text: "em", italic: true },
+      { text: " " },
+      { text: "code", code: true },
+    ])
+  })
+
+  it("keeps a link as its label and its address", () => {
+    expect(parseInlineRuns("[the docs](https://example.com)")).toEqual([
+      { text: "the docs", href: "https://example.com" },
+    ])
+  })
+
+  it("reads emphasis nested inside emphasis", () => {
+    expect(parseInlineRuns("**bold with _italic_**")).toEqual([
+      { text: "bold with ", bold: true },
+      { text: "italic", bold: true, italic: true },
+    ])
+  })
+
+  it("keeps a word with an underscore in it as a word", () => {
+    expect(parseInlineRuns("user_name")).toEqual([{ text: "user_name" }])
+  })
+
+  it("keeps an unmatched marker as the character it is", () => {
+    expect(parseInlineRuns("a * b and foo _")).toEqual([
+      { text: "a * b and foo _" },
+    ])
   })
 })

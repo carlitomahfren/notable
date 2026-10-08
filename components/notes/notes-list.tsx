@@ -1,13 +1,34 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import {
+  closestCenter,
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from "@dnd-kit/core"
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable"
 
+import type { Note } from "@/types/note"
 import { useNotesActions } from "@/components/providers/notes-provider"
 import { useWorkspaceActions } from "@/components/providers/workspace-provider"
+import { getDisplayTitle, sortNotes } from "@/lib/notes/selectors"
+import { projectVisibleReorderToFull } from "@/lib/notes/reorder"
 
 import { DeleteNoteDialog } from "./delete-note-dialog"
 import { NoteCard } from "./note-card"
 import { NotesEmptyState } from "./notes-empty-state"
+import { SortableNoteCard } from "./sortable-note-card"
 import {
   useNoteSelectionActions,
   useNoteSelectionState,
@@ -21,7 +42,8 @@ import { useSelectedNoteId } from "./use-selected-note-id"
 export function NotesList() {
   const selectedNoteId = useSelectedNoteId()
   const { setSearchQuery } = useWorkspaceActions()
-  const { togglePin, retryLoad, clearMutationError } = useNotesActions()
+  const { togglePin, retryLoad, clearMutationError, reorderNotes } =
+    useNotesActions()
   const { createEmptyNote } = useCreateNote()
   const returnToList = useReturnToList()
   const { selectedNoteIds } = useNoteSelectionState()
@@ -38,6 +60,7 @@ export function NotesList() {
     hasSearchQuery,
   } = useNotesListView()
   const [pendingPinId, setPendingPinId] = useState<string | null>(null)
+  const [activeNote, setActiveNote] = useState<Note | null>(null)
   const { pendingNoteId, requestDelete, cancelDelete, confirmDelete } =
     useDeleteNote()
   const pendingNote = notes.find((note) => note.id === pendingNoteId)
@@ -89,6 +112,79 @@ export function NotesList() {
     [confirmDelete, returnToList, selectedNoteId, pendingNoteId],
   )
 
+  const noteById = useMemo(
+    () => new Map(notes.map((note) => [note.id, note])),
+    [notes],
+  )
+
+  // The list can only reorder notes it can see, so a drop produces a reorder of
+  // the visible slice that is then projected back onto the full list.
+  const fullOrder = useMemo(() => sortNotes(notes).map((note) => note.id), [notes])
+  const visibleOrder = useMemo(
+    () => visibleNotes.map((note) => note.id),
+    [visibleNotes],
+  )
+
+  const sensors = useSensors(
+    /*
+     * A small threshold keeps a tap on the grip from becoming a drag the moment
+     * a thumb lands; a real move crosses it almost immediately.
+     */
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
+
+  const titleFor = useCallback(
+    (id: string) => {
+      const note = noteById.get(id)
+
+      return note === undefined ? "A note" : getDisplayTitle(note)
+    },
+    [noteById],
+  )
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveNote(
+      noteById.get(String(event.active.id)) ?? null,
+    )
+  }, [noteById])
+
+  const handleDragEnd = useCallback(
+    (event: DragEndEvent) => {
+      const { active, over } = event
+      const activeId = String(active.id)
+
+      setActiveNote(null)
+
+      if (over === null || activeId === String(over.id)) {
+        return
+      }
+
+      const fromIndex = visibleOrder.indexOf(activeId)
+      const toIndex = visibleOrder.indexOf(String(over.id))
+
+      if (fromIndex === -1 || toIndex === -1) {
+        return
+      }
+
+      const nextVisible = arrayMove(visibleOrder, fromIndex, toIndex)
+      const nextFull = projectVisibleReorderToFull(
+        fullOrder,
+        nextVisible,
+        activeId,
+      )
+
+      void reorderNotes(nextFull)
+    },
+    [fullOrder, reorderNotes, visibleOrder],
+  )
+
+  const handleDragCancel = useCallback(() => {
+    setActiveNote(null)
+  }, [])
+
   if (status === "loading") {
     return (
       <p className="shell-placeholder" role="status">
@@ -128,20 +224,69 @@ export function NotesList() {
           onClearSearch={() => setSearchQuery("")}
         />
       ) : (
-        <ul className="note-list">
-          {visibleNotes.map((note) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              isOpen={note.id === selectedNoteId}
-              isSelected={selectedNoteIds.has(note.id)}
-              isBusy={pendingPinId === note.id || pendingNoteId === note.id}
-              onSelect={toggleNote}
-              onTogglePin={(id) => void handleTogglePin(id)}
-              onDelete={requestDelete}
-            />
-          ))}
-        </ul>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
+          accessibility={{
+            announcements: {
+              onDragStart({ active }) {
+                return `Picked up ${titleFor(String(active.id))}. Use the arrow keys to move it, space or enter to confirm, escape to cancel.`
+              },
+              onDragOver({ active, over }) {
+                return over === null
+                  ? `${titleFor(String(active.id))} is no longer over a note.`
+                  : `${titleFor(String(active.id))} moved ${titleFor(String(over.id))}`
+              },
+              onDragEnd({ active, over }) {
+                return over === null
+                  ? `${titleFor(String(active.id))} dropped.`
+                  : `${titleFor(String(active.id))} dropped ${titleFor(String(over.id))}`
+              },
+              onDragCancel({ active }) {
+                return `${titleFor(String(active.id))} was dropped. Position unchanged.`
+              },
+            },
+          }}
+        >
+          <SortableContext
+            items={visibleOrder}
+            strategy={verticalListSortingStrategy}
+          >
+            <ul className="note-list">
+              {visibleNotes.map((note) => (
+                <SortableNoteCard
+                  key={note.id}
+                  note={note}
+                  isOpen={note.id === selectedNoteId}
+                  isSelected={selectedNoteIds.has(note.id)}
+                  isBusy={pendingPinId === note.id || pendingNoteId === note.id}
+                  onSelect={toggleNote}
+                  onTogglePin={(id) => void handleTogglePin(id)}
+                  onDelete={requestDelete}
+                />
+              ))}
+            </ul>
+          </SortableContext>
+
+          <DragOverlay>
+            {activeNote !== null && (
+              <div className="note-card__overlay" role="group" aria-hidden="true">
+                <NoteCard
+                  note={activeNote}
+                  isOpen={false}
+                  isSelected={false}
+                  dragOverlay
+                  onSelect={() => {}}
+                  onTogglePin={() => {}}
+                  onDelete={() => {}}
+                />
+              </div>
+            )}
+          </DragOverlay>
+        </DndContext>
       )}
 
       {pendingNote !== undefined ? (
