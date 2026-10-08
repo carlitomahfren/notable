@@ -1375,12 +1375,14 @@ describe("the narrow layouts", () => {
   /*
    * The writing area on a phone.
    *
-   * The base editor chain forces every level to fit the pane, so only the writing
-   * surface gives way and a phone with the keyboard open handed the note a small
-   * box that scrolled inside itself while the footer sat pinned underneath it.
-   * The phone layer lifts that: the editor column keeps a content floor so the
-   * pane scrolls instead, the writing box stops clipping its own overflow, and the
-   * surface keeps its zero floor so the note still cannot migrate under the footer.
+   * The base column bounds every level, so a note with real content scrolls
+   * inside its own surface while the pane stays the outer scroll. A bounded
+   * editor alone would hand a keyboard-open phone a sliver of writing area, so
+   * the phone layer keeps the pane scroll, floors the editor so the whole
+   * column (title, tags, chrome, surface, footer) rides the pane instead of
+   * being squeezed, leaves the surface unfloored (it may never outgrow its own
+   * boundary and scroll its content), and drops the writing box's clip since
+   * the column is never squished here.
    */
   it("lets the workspace scroll on a phone instead of compressing the writing area", () => {
     const phone = rules.filter(
@@ -1394,14 +1396,30 @@ describe("the narrow layouts", () => {
       ).get("overflow"),
     ).toBe("auto")
 
-    for (const selector of [".shell-editor", ".editor"]) {
-      const rule = phone.find((candidate) =>
-        candidate.selectors.includes(selector),
-      )
+    // The outer column stays bounded; only the editor below is floored.
+    const shellEditor = phone.find((candidate) =>
+      candidate.selectors.includes(".shell-editor"),
+    )
 
-      expect(rule, selector).toBeDefined()
-      expect(declarationsOf(rule!).get("min-block-size"), selector).toBe("auto")
-    }
+    expect(shellEditor, ".shell-editor").toBeDefined()
+    expect(declarationsOf(shellEditor!).get("min-block-size")).toBe("0")
+
+    // The editor floor is a real height: one viewport of writing box, and below
+    // that, the chrome a keyboard-open phone uses plus a comfortable surface.
+    // It is NOT a content floor, so the note itself stays bounded above it.
+    const editor = phone.find((candidate) =>
+      candidate.selectors.includes(".editor"),
+    )
+
+    expect(editor, ".editor").toBeDefined()
+    const minBlock = declarationsOf(editor!).get("min-block-size")
+
+    expect(minBlock, "editor min-block-size").not.toBe("auto")
+    expect(minBlock, "editor min-block-size").toContain("max(")
+    expect(minBlock, "editor min-block-size").toContain("100dvh")
+    expect(minBlock, "editor min-block-size").toContain(
+      "calc(26rem + clamp(11rem, 30dvh, 16rem))",
+    )
 
     const writing = phone.find((candidate) =>
       candidate.selectors.includes(".editor__writing"),

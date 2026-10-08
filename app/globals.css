@@ -2963,20 +2963,37 @@ body {
   /*
    * The editor column on a phone.
    *
-   * The base column makes every level fit the pane and leaves the writing surface
-   * alone to give way, so a phone with the keyboard open handed the note a few
-   * lines closed inside its own box while the footer sat pinned underneath it.
-   * Restoring the content floor (`min-block-size: auto`) puts the scroll at the
-   * pane instead: the writing area grows with the note, the footer rides below it
-   * in the flow, and the pane scrolls down to the Status/Export/Delete row. The
-   * writing box's own clip is dropped because a box that can no longer be squeezed
-   * needs no seam to close; the surface inside keeps its zero floor and its own
-   * boundary, so the note still cannot paint under the footer, only push it and
-   * then scroll it up.
+   * The pane is height-clamped, so the writing surface has to be the inner
+   * scrollport or the note hands the page its whole height and a screenful of
+   * prose scrolls past the toolbar before the action row arrives. The base column
+   * already bounds every level, so leaving the content floor off keeps the
+   * `.rich-text__surface` inside its own `overflow-y: auto` boundary and the pane
+   * as the outer scroll.
+   *
+   * Generated content must stop growing at the available bound and then scroll
+   * inside the surface, but a phone with the keyboard open hands the editor so
+   * little slack that an unfloored box gives the note a sliver. The editor floor
+   * therefore guarantees a writing box at least one viewport-height tall and,
+   * when the viewport cannot provide that, as much chrome as a keyboard-open
+   * phone uses above the surface plus a comfortable writing floor. `dvh` keeps
+   * the baseline honest while browser chrome collapses and reopens, so the note
+   * does not reflow when the keyboard is dismissed.
+   *
+   * The writing box's own clip is dropped: the surface keeps a real boundary and
+   * scrolls its own content, so there is no seam to close. The footer sits below
+   * the surface inside this same column, so the note can neither push under it
+   * nor paint over it; the pane scrolls down to the Status/Export/Delete row and
+   * the writing area shrinks only as far as its floor.
    */
-  .shell-editor,
+  .shell-editor {
+    min-block-size: 0;
+  }
+
   .editor {
-    min-block-size: auto;
+    min-block-size: max(
+      100dvh,
+      calc(26rem + clamp(11rem, 30dvh, 16rem))
+    );
   }
 
   .editor__writing {
