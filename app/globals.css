@@ -294,6 +294,14 @@ body {
     "fab"
     "bottomnav";
   grid-template-rows: auto minmax(0, 1fr) auto auto;
+  /*
+   * The single implicit column, made explicit and floored at zero. Without the
+   * zero, the column is `auto` and grows to the min-content of whatever sits in
+   * it: an editor whose writing box no longer clips can push the whole shell
+   * wider than the viewport, and then the top bar and the panes both blow out
+   * sideways on a short phone. The floor keeps every row inside the shell.
+   */
+  grid-template-columns: minmax(0, 1fr);
   block-size: 100dvh;
   min-block-size: 100dvh;
 
@@ -1929,6 +1937,9 @@ body {
    * Status/Export/Delete row. So the writing area clips its own overflow and
    * scrolls within itself whenever it is squished: the row below is never
    * painted over, and scrolling the writing area surfaces the note normally.
+   *
+   * The phone layer below lifts the clip and puts the scrolling at the whole
+   * workspace instead, where this box is never squished in the first place.
    */
   min-block-size: 0;
   overflow-y: auto;
@@ -2948,6 +2959,53 @@ body {
   .shell-top-bar .shell-new-note[data-variant="bar"] {
     display: none;
   }
+
+  /*
+   * The editor column on a phone.
+   *
+   * The base column makes every level fit the pane and leaves the writing surface
+   * alone to give way, so a phone with the keyboard open handed the note a few
+   * lines closed inside its own box while the footer sat pinned underneath it.
+   * Restoring the content floor (`min-block-size: auto`) puts the scroll at the
+   * pane instead: the writing area grows with the note, the footer rides below it
+   * in the flow, and the pane scrolls down to the Status/Export/Delete row. The
+   * writing box's own clip is dropped because a box that can no longer be squeezed
+   * needs no seam to close; the surface inside keeps its zero floor and its own
+   * boundary, so the note still cannot paint under the footer, only push it and
+   * then scroll it up.
+   */
+  .shell-editor,
+  .editor {
+    min-block-size: auto;
+  }
+
+  .editor__writing {
+    overflow: visible;
+  }
+}
+
+/*
+ * The formatting row on a phone.
+ *
+ * The order is the same and every target is still the app's 44px minimum, so this
+ * only lightens the row: a smaller glyph, a tighter space between buttons, and
+ * both wrap rows centred so a toolbar that has to fold at 320px reads as one
+ * balanced cluster rather than a ragged strip.
+ *
+ * The glyph is sized in physical width/height because it is an SVG drawing and the
+ * pair is what its presentation attributes ride on; the button that surrounds it
+ * keeps its logical 44px floor.
+ */
+@media (max-width: 767px) {
+  .editor-toolbar {
+    gap: 0.125rem;
+    justify-content: center;
+  }
+
+  .editor-toolbar__icon {
+    width: 1rem;
+    height: 1rem;
+  }
 }
 
 /*
@@ -3018,6 +3076,27 @@ body {
 
   .shell-new-note[data-variant="fab"],
   .shell-fab-layer {
+    display: none;
+  }
+}
+
+/*
+ * SHORT on a NARROW screen: a portrait phone with the keyboard open meets the
+ * short-height rule and swaps in the top bar's navigation (Home, Tags), yet the
+ * bar is no wider than before and the added destinations do not fit beside the
+ * search and the controls. The bar itself must not push the page sideways, so the
+ * strip is allowed to scroll within itself: every destination keeps its 44px
+ * target and stays reachable by a thumb swipe, the shell stops at the viewport
+ * edge, and no row height is spent. Wider short screens are unaffected because
+ * they do not match the width leg.
+ */
+@media (max-width: 767px) and (max-height: 499px) {
+  .shell-top-bar__nav {
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .shell-top-bar__nav::-webkit-scrollbar {
     display: none;
   }
 }

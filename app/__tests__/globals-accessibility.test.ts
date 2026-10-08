@@ -1371,6 +1371,117 @@ describe("the narrow layouts", () => {
       expect(rule?.body, selector).toMatch(/gap:\s*var\(--space-tight\)/)
     }
   })
+
+  /*
+   * The writing area on a phone.
+   *
+   * The base editor chain forces every level to fit the pane, so only the writing
+   * surface gives way and a phone with the keyboard open handed the note a small
+   * box that scrolled inside itself while the footer sat pinned underneath it.
+   * The phone layer lifts that: the editor column keeps a content floor so the
+   * pane scrolls instead, the writing box stops clipping its own overflow, and the
+   * surface keeps its zero floor so the note still cannot migrate under the footer.
+   */
+  it("lets the workspace scroll on a phone instead of compressing the writing area", () => {
+    const phone = rules.filter(
+      (rule) => rule.media === "@media (max-width: 767px), (max-height: 499px)",
+    )
+
+    // The pane keeps the scroll port that the editor grows out of.
+    expect(
+      declarationsOf(
+        rules.find((rule) => rule.selectors.includes(".shell-pane"))!,
+      ).get("overflow"),
+    ).toBe("auto")
+
+    for (const selector of [".shell-editor", ".editor"]) {
+      const rule = phone.find((candidate) =>
+        candidate.selectors.includes(selector),
+      )
+
+      expect(rule, selector).toBeDefined()
+      expect(declarationsOf(rule!).get("min-block-size"), selector).toBe("auto")
+    }
+
+    const writing = phone.find((candidate) =>
+      candidate.selectors.includes(".editor__writing"),
+    )
+
+    expect(writing, ".editor__writing").toBeDefined()
+    expect(declarationsOf(writing!).get("overflow")).toBe("visible")
+
+    // The surface is never given a floor again in the phone layer.
+    expect(
+      phone.some((candidate) =>
+        candidate.selectors.includes(".rich-text__surface"),
+      ),
+    ).toBe(false)
+  })
+
+  // The formatting row on a phone stays inside the 44px target budget.
+  it("compacts the formatting row on a phone without shrinking its targets", () => {
+    const mobile = rules.filter(
+      (rule) => rule.media === "@media (max-width: 767px)",
+    )
+
+    const toolbar = mobile.find((candidate) =>
+      candidate.selectors.includes(".editor-toolbar"),
+    )
+
+    expect(toolbar).toBeDefined()
+    expect(declarationsOf(toolbar!).get("gap")).toBe("0.125rem")
+    expect(declarationsOf(toolbar!).get("justify-content")).toBe("center")
+
+    const icon = mobile.find((candidate) =>
+      candidate.selectors.includes(".editor-toolbar__icon"),
+    )
+
+    expect(icon).toBeDefined()
+    expect(declarationsOf(icon!).get("width")).toBe("1rem")
+    expect(declarationsOf(icon!).get("height")).toBe("1rem")
+
+    // No rule touches the button itself, so its 44px inline and block floors hold.
+    expect(
+      mobile.some((candidate) =>
+        candidate.selectors.includes(".editor-toolbar__button"),
+      ),
+    ).toBe(false)
+  })
+
+  /*
+   * A copy of the shell's implicit column, floored at zero. Without it, the blank
+   * column is `auto` and grows to the min-content of the editor chain once the
+   * writing box stops clipping, dragging the top bar and the panes past the edge
+   * of a short phone.
+   */
+  it("keeps the shell column inside the viewport", () => {
+    const shell = rules.find((rule) => rule.selectors.includes(".shell"))!
+
+    expect(declarationsOf(shell).get("grid-template-columns")).toBe(
+      "minmax(0, 1fr)",
+    )
+  })
+
+  /*
+   * SHORT on a narrow screen: the swapped-in top-bar navigation would otherwise
+   * not fit the bar's width, so the strip scrolls within itself instead of
+   * pushing the shell sideways. Every target stays, and only a thumb does the
+   * walking.
+   */
+  it("scrolls the short-screen top-bar navigation instead of widening the page", () => {
+    const narrowShort = rules.filter(
+      (rule) =>
+        rule.media === "@media (max-width: 767px) and (max-height: 499px)",
+    )
+
+    const nav = narrowShort.find((candidate) =>
+      candidate.selectors.includes(".shell-top-bar__nav"),
+    )
+
+    expect(nav, ".shell-top-bar__nav").toBeDefined()
+    expect(declarationsOf(nav!).get("overflow-x")).toBe("auto")
+    expect(declarationsOf(nav!).get("scrollbar-width")).toBe("none")
+  })
 })
 
 /*
