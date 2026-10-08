@@ -1503,6 +1503,63 @@ describe("the narrow layouts", () => {
 })
 
 /*
+ * The list is a column of rows with a gutter between them, and the hairline
+ * drawn in that gutter is what tells one row from the next once they stack: a
+ * line across the whole row would cut its own edges, and no line at all leaves
+ * the column reading as one block of text.
+ */
+describe("the note list", () => {
+  it("separates the rows with a hairline drawn in the gap", () => {
+    const divider = rules.find((rule) =>
+      rule.selectors.includes(".note-card__item + .note-card__item::before"),
+    )
+
+    expect(divider).toBeDefined()
+    expect(divider!.media).toBeNull()
+
+    const declarations = declarationsOf(divider!)
+
+    // The adjacency combinator is what keeps the line off the first row.
+    expect(divider!.selectors.length).toBe(1)
+    expect(declarations.get("content")).toBe('""')
+    expect(declarations.get("position")).toBe("absolute")
+    expect(declarations.get("block-size")).toBe("1px")
+    /*
+     * Token, not a colour literal: the line has to follow the theme like every
+     * other edge in the app. Inset from the list's padding, so it stops where
+     * the card's own box starts rather than running through both ends of it.
+     */
+    expect(declarations.get("background")).toBe("var(--border)")
+    expect(declarations.get("inset-inline")).toBe("0.75rem")
+    expect(declarations.get("inset-block-start")).toBeDefined()
+  })
+
+  it("hides the list's scrollbar without closing its scroll port", () => {
+    const port = rules.find((rule) =>
+      rule.selectors.includes(".shell-pane__focus-target"),
+    )
+    const hidden = rules.find((rule) =>
+      rule.selectors.includes(".shell-pane--list .shell-pane__focus-target"),
+    )
+    const hiddenWebkit = rules.find((rule) =>
+      rule.selectors.includes(
+        ".shell-pane--list .shell-pane__focus-target::-webkit-scrollbar",
+      ),
+    )
+
+    // The port is the box the notes scroll in: workspace header above, notes inside.
+    expect(declarationsOf(port!).get("overflow")).toBe("auto")
+    expect(declarationsOf(port!).get("min-block-size")).toBe("0")
+
+    // Only the bar drawn down its edge is given up, in both engine spellings.
+    expect(declarationsOf(hidden!).get("scrollbar-width")).toBe("none")
+    expect(hidden!.media).toBeNull()
+    expect(hiddenWebkit?.body).toContain("display: none")
+    expect(hiddenWebkit!.media).toBeNull()
+  })
+})
+
+/*
  * No invented names.
  *
  * A custom property that is used but never defined renders as nothing at all, which

@@ -9,8 +9,10 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  type CollisionDetection,
   type DragEndEvent,
   type DragStartEvent,
+  type DropAnimation,
 } from "@dnd-kit/core"
 import {
   arrayMove,
@@ -26,6 +28,7 @@ import { getDisplayTitle, sortNotes } from "@/lib/notes/selectors"
 import { projectVisibleReorderToFull } from "@/lib/notes/reorder"
 
 import { DeleteNoteDialog } from "./delete-note-dialog"
+import { NOTE_DROP_ANIMATION } from "./drag-motion"
 import { NoteCard } from "./note-card"
 import { NotesEmptyState } from "./notes-empty-state"
 import { SortableNoteCard } from "./sortable-note-card"
@@ -38,6 +41,31 @@ import { useCreateNote } from "./use-create-note"
 import { useDeleteNote, useReturnToList } from "./use-delete-note"
 import { useNotesListView } from "./use-notes-list-view"
 import { useSelectedNoteId } from "./use-selected-note-id"
+
+/*
+ * The stylesheet flattens every transition when reduced motion is asked for, but
+ * the card's settle after a drop is a Web Animation and answers only to itself,
+ * so the preference is read here for that one piece of movement.
+ */
+function usePrefersReducedMotion(): boolean {
+  const [prefers, setPrefers] = useState(false)
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") {
+      return
+    }
+
+    const query = window.matchMedia("(prefers-reduced-motion: reduce)")
+    const sync = () => setPrefers(query.matches)
+
+    sync()
+    query.addEventListener("change", sync)
+
+    return () => query.removeEventListener("change", sync)
+  }, [])
+
+  return prefers
+}
 
 export function NotesList() {
   const selectedNoteId = useSelectedNoteId()
@@ -117,6 +145,34 @@ export function NotesList() {
     [notes],
   )
 
+  /*
+   * A note travels only among notes of its own region. Pinned notes sit above
+   * unpinned ones and nothing may cross that line, so the drop target is chosen
+   * from the dragged note's own region alone: pointing at the other region
+   * lands at this region's edge, and the arrow keys stop at the same line. The
+   * list is therefore never offered an order that would contradict the sort.
+   */
+  const detectCollision: CollisionDetection = useCallback(
+    (args) => {
+      const activeNote = noteById.get(String(args.active.id))
+
+      if (activeNote === undefined) {
+        return closestCenter(args)
+      }
+
+      const droppableContainers = args.droppableContainers.filter(
+        (container) => {
+          const note = noteById.get(String(container.id))
+
+          return note !== undefined && note.isPinned === activeNote.isPinned
+        },
+      )
+
+      return closestCenter({ ...args, droppableContainers })
+    },
+    [noteById],
+  )
+
   // The list can only reorder notes it can see, so a drop produces a reorder of
   // the visible slice that is then projected back onto the full list.
   const fullOrder = useMemo(() => sortNotes(notes).map((note) => note.id), [notes])
@@ -135,6 +191,11 @@ export function NotesList() {
       coordinateGetter: sortableKeyboardCoordinates,
     }),
   )
+
+  const prefersReducedMotion = usePrefersReducedMotion()
+  const dropAnimation: DropAnimation = prefersReducedMotion
+    ? { duration: 0 }
+    : NOTE_DROP_ANIMATION
 
   const titleFor = useCallback(
     (id: string) => {
@@ -226,7 +287,7 @@ export function NotesList() {
       ) : (
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCenter}
+          collisionDetection={detectCollision}
           onDragStart={handleDragStart}
           onDragEnd={handleDragEnd}
           onDragCancel={handleDragCancel}
@@ -271,7 +332,7 @@ export function NotesList() {
             </ul>
           </SortableContext>
 
-          <DragOverlay>
+          <DragOverlay dropAnimation={dropAnimation}>
             {activeNote !== null && (
               <div className="note-card__overlay" role="group" aria-hidden="true">
                 <NoteCard

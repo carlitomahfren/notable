@@ -195,6 +195,25 @@ describe("NotesService updateNote", () => {
     expect(pinned.updatedAt).toBe(T0)
   })
 
+  it("rewrites the stored order when a patch pins a note", async () => {
+    await service.createNote({ title: "One", content: "", tags: [] })
+    await service.createNote({ title: "Two", content: "", tags: [] })
+    const third = await service.createNote({
+      title: "Three",
+      content: "",
+      tags: [],
+    })
+
+    await service.updateNote(third.id, { isPinned: true })
+
+    expect(storedNotes().map((note) => note.title)).toEqual([
+      "Three",
+      "One",
+      "Two",
+    ])
+    expect(storedNotes().map((note) => note.order)).toEqual([0, 1, 2])
+  })
+
   it("propagates a missing-note error", async () => {
     await expect(
       service.updateNote("missing-id", { title: "x" }),
@@ -312,6 +331,46 @@ describe("NotesService togglePin", () => {
     expect(storedNotes()[0].isPinned).toBe(true)
   })
 
+  it("writes the newly pinned note back to the front of the stored order", async () => {
+    await service.createNote({ title: "One", content: "", tags: [] })
+    await service.createNote({ title: "Two", content: "", tags: [] })
+    const third = await service.createNote({
+      title: "Three",
+      content: "",
+      tags: [],
+    })
+
+    await service.togglePin(third.id)
+
+    expect(storedNotes().map((note) => note.title)).toEqual([
+      "Three",
+      "One",
+      "Two",
+    ])
+    // Renumbered as it moves, so the stored order and the sorted one agree.
+    expect(storedNotes().map((note) => note.order)).toEqual([0, 1, 2])
+  })
+
+  it("drops an unpinned note below the pinned ones on unpin", async () => {
+    const first = await service.createNote({
+      title: "One",
+      content: "",
+      tags: [],
+    })
+    const second = await service.createNote({
+      title: "Two",
+      content: "",
+      tags: [],
+    })
+    await service.togglePin(first.id)
+    await service.togglePin(second.id)
+
+    const unpinned = await service.togglePin(first.id)
+
+    expect(storedNotes().map((note) => note.title)).toEqual(["Two", "One"])
+    expect(unpinned.order).toBe(1)
+  })
+
   it("throws NoteNotFoundError for a missing note", async () => {
     await expect(service.togglePin("missing-id")).rejects.toThrow(
       NoteNotFoundError,
@@ -373,6 +432,53 @@ describe("NotesService reorderNotes", () => {
     await expect(
       service.reorderNotes([first.id, first.id]),
     ).rejects.toThrow(ValidationError)
+  })
+
+  it("writes back a sequence that would put an unpinned note above a pinned one", async () => {
+    const first = await service.createNote({
+      title: "One",
+      content: "",
+      tags: [],
+    })
+    const second = await service.createNote({
+      title: "Two",
+      content: "",
+      tags: [],
+    })
+    await service.togglePin(second.id)
+
+    const notes = await service.reorderNotes([first.id, second.id])
+
+    expect(notes.map((note) => note.title)).toEqual(["Two", "One"])
+    expect(storedNotes().map((note) => note.title)).toEqual(["Two", "One"])
+  })
+
+  it("lets a reorder within a region through as it was asked for", async () => {
+    const first = await service.createNote({
+      title: "One",
+      content: "",
+      tags: [],
+    })
+    const second = await service.createNote({
+      title: "Two",
+      content: "",
+      tags: [],
+    })
+    const third = await service.createNote({
+      title: "Three",
+      content: "",
+      tags: [],
+    })
+    await service.togglePin(first.id)
+
+    const notes = await service.reorderNotes([
+      first.id,
+      third.id,
+      second.id,
+    ])
+
+    expect(notes.map((note) => note.title)).toEqual(["One", "Three", "Two"])
+    expect(storedNotes().map((note) => note.order)).toEqual([0, 1, 2])
   })
 
   it("propagates repository errors", async () => {

@@ -1,4 +1,24 @@
 /**
+ * Puts an order into the shape every reader assumes: pinned notes first,
+ * unpinned ones after them, and the order inside each region left exactly as it
+ * was. The pinned region is only ever separated from the unpinned one by the
+ * sort, so a sequence that lets an unpinned note lead a pinned one describes a
+ * list that does not exist; this is the sequence that is written instead.
+ *
+ * Nothing is dropped or invented, so it is safe to run on an order that is
+ * already correct, where it returns the same sequence as a new array.
+ */
+export function enforcePinnedFirst(
+  orderedIds: readonly string[],
+  pinnedIds: ReadonlySet<string>,
+): string[] {
+  const pinned = orderedIds.filter((id) => pinnedIds.has(id))
+  const rest = orderedIds.filter((id) => !pinnedIds.has(id))
+
+  return [...pinned, ...rest]
+}
+
+/**
  * Converts a move inside a filtered slice of the list (drags can only happen
  * between the notes that are visible) into an order for the full list.
  *

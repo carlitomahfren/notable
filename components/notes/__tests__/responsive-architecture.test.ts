@@ -65,12 +65,22 @@ describe("responsive architecture", () => {
     expect(offenders).toEqual([])
   })
 
-  it("uses matchMedia only for the colour-scheme preference", () => {
+  /*
+   * `matchMedia` is read for preferences that CSS cannot act on by itself: the
+   * colour scheme, which the theme provider pins, and reduced motion, which the
+   * note drag's settle has to answer because it is a Web Animation rather than a
+   * transition. Neither describes the viewport, which is what this test guards:
+   * a viewport read here would be a second, non-deterministic breakpoint source.
+   */
+  it("uses matchMedia only for user preferences, never for the viewport", () => {
     const matches = SCANNED.filter((file) => file.contents.includes("matchMedia")).map(
       (file) => file.relative,
     )
 
-    expect(matches).toEqual(["components\\providers\\theme-provider.tsx"])
+    expect(matches).toEqual([
+      "components\\notes\\notes-list.tsx",
+      "components\\providers\\theme-provider.tsx",
+    ])
   })
 
   it("reads the resolved viewport size only through CSS", () => {

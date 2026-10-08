@@ -122,7 +122,7 @@ describe("note list selection", () => {
 })
 
 describe("workspace views", () => {
-  it("shows every note in the manual order, pinned notes included", async () => {
+  it("shows the pinned notes above the unpinned ones, each in its manual order", async () => {
     await seedStorage([
       makeNote({ title: "Alpha" }),
       makeNote({ title: "Beta", isPinned: true }),
@@ -130,7 +130,7 @@ describe("workspace views", () => {
 
     const container = await renderWithProviders(listUi())
 
-    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
+    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
   })
 
   it("shows only pinned notes after selecting the pinned view", async () => {
@@ -157,7 +157,7 @@ describe("workspace views", () => {
     await click(navButton("Pinned") as HTMLElement)
     await click(navButton("All Notes") as HTMLElement)
 
-    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
+    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
   })
 
   it("marks the active view for assistive technology", async () => {
@@ -430,7 +430,7 @@ describe("search interaction", () => {
 })
 
 describe("pin interaction", () => {
-  it("pins a note without changing its position in the list", async () => {
+  it("moves a pinned note to the top of the list and stores it there", async () => {
     const alpha = makeNote({ title: "Alpha" })
     const beta = makeNote({ title: "Beta" })
 
@@ -440,12 +440,40 @@ describe("pin interaction", () => {
 
     expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
 
-    await click(byLabelText("Pin Alpha") as HTMLElement)
+    await click(byLabelText("Pin Beta") as HTMLElement)
 
-    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
-    expect(storedNotes().find((note) => note.id === alpha.id)?.isPinned).toBe(
+    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
+    expect(storedNotes().map((note) => note.title)).toEqual(["Beta", "Alpha"])
+    expect(storedNotes().map((note) => note.order)).toEqual([0, 1])
+    expect(storedNotes().find((note) => note.id === beta.id)?.isPinned).toBe(
       true,
     )
+  })
+
+  it("moves a note below the pinned ones when it is unpinned", async () => {
+    await seedStorage([
+      makeNote({ title: "Alpha", isPinned: true }),
+      makeNote({ title: "Beta", isPinned: true }),
+      makeNote({ title: "Gamma" }),
+    ])
+
+    const container = await renderWithProviders(listUi())
+
+    expect(renderedTitles(container)).toEqual(["Alpha", "Beta", "Gamma"])
+
+    await click(byLabelText("Unpin Alpha") as HTMLElement)
+
+    /*
+     * The note leaves the pinned region for the row directly beneath it, and the
+     * stored order is rewritten to say the same thing the list shows.
+     */
+    expect(renderedTitles(container)).toEqual(["Beta", "Alpha", "Gamma"])
+    expect(storedNotes().map((note) => note.title)).toEqual([
+      "Beta",
+      "Alpha",
+      "Gamma",
+    ])
+    expect(storedNotes().find((note) => note.title === "Alpha")?.order).toBe(1)
   })
 
   it("unpins a note", async () => {
@@ -512,7 +540,7 @@ describe("pin interaction", () => {
     )
   })
 
-  it("shows pinned notes of a tag in their manual positions", async () => {
+  it("shows pinned notes of a tag above the unpinned ones", async () => {
     await seedStorage([
       makeNote({ title: "Alpha", tags: ["work"] }),
       makeNote({ title: "Beta", tags: ["work"], isPinned: true }),
@@ -522,7 +550,7 @@ describe("pin interaction", () => {
 
     await selectTag("work")
 
-    expect(renderedTitles(container)).toEqual(["Alpha", "Beta"])
+    expect(renderedTitles(container)).toEqual(["Beta", "Alpha"])
   })
 })
 
@@ -623,6 +651,61 @@ describe("note reordering", () => {
       "Alpha",
     ])
     expect(storedNotes().find((note) => note.title === "Beta")?.order).toBe(0)
+  })
+
+  it("moves a note above its neighbours without leaving its own region", async () => {
+    await seedStorage([
+      makeNote({ title: "Alpha", isPinned: true }),
+      makeNote({ title: "Beta" }),
+      makeNote({ title: "Gamma" }),
+    ])
+
+    const list = await renderWithProviders(listUi())
+    const handle = byLabelText("Reorder Gamma", list)
+
+    if (handle === null) {
+      throw new Error("drag handle not found")
+    }
+
+    await keyDown(handle, "Enter")
+    await wait()
+    await keyDown(handle, "ArrowUp")
+    await keyDown(handle, "Enter")
+
+    expect(renderedTitles(list)).toEqual(["Alpha", "Gamma", "Beta"])
+    expect(storedNotes().map((note) => note.title)).toEqual([
+      "Alpha",
+      "Gamma",
+      "Beta",
+    ])
+  })
+
+  it("stops a note at the line instead of letting it join the pinned ones", async () => {
+    await seedStorage([
+      makeNote({ title: "Alpha", isPinned: true }),
+      makeNote({ title: "Beta" }),
+      makeNote({ title: "Gamma" }),
+    ])
+
+    const list = await renderWithProviders(listUi())
+    const handle = byLabelText("Reorder Beta", list)
+
+    if (handle === null) {
+      throw new Error("drag handle not found")
+    }
+
+    // The only note above Beta is pinned, so there is nowhere up to go.
+    await keyDown(handle, "Enter")
+    await wait()
+    await keyDown(handle, "ArrowUp")
+    await keyDown(handle, "Enter")
+
+    expect(renderedTitles(list)).toEqual(["Alpha", "Beta", "Gamma"])
+    expect(storedNotes().map((note) => note.title)).toEqual([
+      "Alpha",
+      "Beta",
+      "Gamma",
+    ])
   })
 
   it("tells assistive technology how to drag and which note is active", async () => {

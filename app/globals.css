@@ -373,6 +373,21 @@ body {
   outline-offset: -2px;
 }
 
+/*
+ * The note list's scroll port: the workspace heading and the selection row sit
+ * above it, and the notes fill it. A bar down its edge only repeats what the
+ * column already says about how much is there, so it is given up here, as on
+ * the writing surface. The scrolling itself is untouched: wheel, touch, the
+ * keyboard, and `scrollIntoView` all still move the port.
+ */
+.shell-pane--list .shell-pane__focus-target {
+  scrollbar-width: none;
+}
+
+.shell-pane--list .shell-pane__focus-target::-webkit-scrollbar {
+  display: none;
+}
+
 /* TOP BAR -------------------------------------------------------------- */
 
 .shell-top-bar {
@@ -1097,6 +1112,20 @@ body {
   display: flex;
   align-items: stretch;
   gap: 0.25rem;
+}
+
+/*
+ * A hairline between rows, drawn in the gap the list already keeps between them
+ * and stopping where the card's own padding starts, so the column reads as a
+ * stack of notes rather than a ruled table. The first row has nothing above it.
+ */
+.note-card__item + .note-card__item::before {
+  content: "";
+  position: absolute;
+  inset-block-start: calc(-0.125rem - 0.5px);
+  inset-inline: 0.75rem;
+  block-size: 1px;
+  background: var(--border);
 }
 
 /*

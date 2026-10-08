@@ -8,7 +8,12 @@ import {
   NoteNotFoundError,
   type NotesRepository,
 } from "@/lib/notes/notes-repository"
+import { enforcePinnedFirst } from "@/lib/notes/reorder"
 import { validateAndNormalizeTags } from "@/lib/notes/validators"
+
+function pinnedIdsOf(notes: readonly Note[]): ReadonlySet<string> {
+  return new Set(notes.filter((note) => note.isPinned).map((note) => note.id))
+}
 
 export class NotesService {
   private readonly repository: NotesRepository
@@ -30,7 +35,20 @@ export class NotesService {
   }
 
   async updateNote(id: string, patch: NoteUpdate): Promise<Note> {
-    return this.repository.update(id, this.normalizePatch(patch))
+    const updated = await this.repository.update(id, this.normalizePatch(patch))
+
+    if (patch.isPinned === undefined) {
+      return updated
+    }
+
+    /*
+     * The patch moved the note between the pinned and the unpinned region, and
+     * the regions are the top of the list, so the stored order may now describe
+     * something the sort would never return.
+     */
+    const notes = await this.writePinnedFirst()
+
+    return notes.find((note) => note.id === id) ?? updated
   }
 
   deleteNote(id: string): Promise<void> {
@@ -44,7 +62,12 @@ export class NotesService {
       throw new NoteNotFoundError(id)
     }
 
-    return this.repository.update(id, { isPinned: !current.isPinned })
+    const updated = await this.repository.update(id, {
+      isPinned: !current.isPinned,
+    })
+    const notes = await this.writePinnedFirst()
+
+    return notes.find((note) => note.id === id) ?? updated
   }
 
   async reorderNotes(orderedIds: readonly string[]): Promise<Note[]> {
@@ -66,11 +89,33 @@ export class NotesService {
       throw new ValidationError("Reorder must include every note exactly once")
     }
 
-    if (current.every((note, index) => note.id === orderedIds[index])) {
+    const canonical = enforcePinnedFirst(orderedIds, pinnedIdsOf(current))
+
+    if (current.every((note, index) => note.id === canonical[index])) {
       return current
     }
 
-    return this.repository.reorder(orderedIds)
+    return this.repository.reorder(canonical)
+  }
+
+  /**
+   * Rewrites the stored order until it reads the way the list is sorted: pinned
+   * notes first, and each region in the order it was already in. Returns the
+   * list as it now stands, which is what a caller needs when a note's own
+   * position changed as a result of the write.
+   */
+  private async writePinnedFirst(): Promise<Note[]> {
+    const notes = await this.repository.getAll()
+    const canonical = enforcePinnedFirst(
+      notes.map((note) => note.id),
+      pinnedIdsOf(notes),
+    )
+
+    if (notes.every((note, index) => note.id === canonical[index])) {
+      return notes
+    }
+
+    return this.repository.reorder(canonical)
   }
 
   private normalizePatch(patch: NoteUpdate): NoteUpdate {

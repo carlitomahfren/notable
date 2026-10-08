@@ -4,6 +4,7 @@ import { useSortable } from "@dnd-kit/sortable"
 import { CSS } from "@dnd-kit/utilities"
 import { GripVertical } from "lucide-react"
 
+import { NOTE_ROW_TRANSITION } from "./drag-motion"
 import type { NoteCardProps } from "./note-card"
 import { NoteCard } from "./note-card"
 import { getDisplayTitle } from "@/lib/notes/selectors"
@@ -25,7 +26,7 @@ export function SortableNoteCard({ note, ...props }: NoteCardProps) {
     transform,
     transition,
     isDragging,
-  } = useSortable({ id: note.id })
+  } = useSortable({ id: note.id, transition: NOTE_ROW_TRANSITION })
 
   const handleLabel = `Reorder ${getDisplayTitle(note)}`
 

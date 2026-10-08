@@ -56,12 +56,21 @@ export function filterNotes(notes: readonly Note[], filter: NoteFilter): Note[] 
 }
 
 /**
- * The note list is in manual order: the `order` field is the display order, and
- * `isPinned` marks a note without ever moving it. A tie is broken by id so the
- * order is deterministic even if storage was edited by hand.
+ * The note list is in manual order with the pinned notes above the unpinned
+ * ones: `isPinned` decides which of the two regions a note belongs to, and the
+ * `order` field decides its position inside that region. A tie is broken by id
+ * so the order is deterministic even if storage was edited by hand.
+ *
+ * Pinned-first is what the whole app agrees on — the list, the tags, search, and
+ * the order a drag is written back in — so no view can show a note above a
+ * pinned one by ordering alone.
  */
 export function sortNotes(notes: readonly Note[]): Note[] {
   return [...notes].sort((a, b) => {
+    if (a.isPinned !== b.isPinned) {
+      return a.isPinned ? -1 : 1
+    }
+
     const byOrder = a.order - b.order
 
     if (byOrder !== 0) {

@@ -145,15 +145,44 @@ describe("sortNotes", () => {
     ])
   })
 
-  it("keeps a pinned note in its manual position", () => {
+  it("lifts a pinned note above the unpinned ones whatever its order says", () => {
     const pinned = makeNote({ title: "Pinned", order: 2, isPinned: true })
     const before = makeNote({ title: "Before", order: 1 })
     const after = makeNote({ title: "After", order: 3 })
 
     expect(sortNotes([before, pinned, after]).map((note) => note.id)).toEqual([
-      before.id,
       pinned.id,
+      before.id,
       after.id,
+    ])
+  })
+
+  it("keeps the manual order inside each region", () => {
+    const pinnedFirst = makeNote({
+      title: "Pinned first",
+      order: 0,
+      isPinned: true,
+    })
+    const pinnedSecond = makeNote({
+      title: "Pinned second",
+      order: 1,
+      isPinned: true,
+    })
+    const unpinnedFirst = makeNote({ title: "Unpinned first", order: 2 })
+    const unpinnedSecond = makeNote({ title: "Unpinned second", order: 3 })
+
+    expect(
+      sortNotes([
+        unpinnedSecond,
+        pinnedSecond,
+        unpinnedFirst,
+        pinnedFirst,
+      ]).map((note) => note.id),
+    ).toEqual([
+      pinnedFirst.id,
+      pinnedSecond.id,
+      unpinnedFirst.id,
+      unpinnedSecond.id,
     ])
   })
 

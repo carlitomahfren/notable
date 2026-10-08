@@ -1,8 +1,52 @@
 import { describe, expect, it } from "vitest"
 
-import { projectVisibleReorderToFull } from "@/lib/notes/reorder"
+import { enforcePinnedFirst, projectVisibleReorderToFull } from "@/lib/notes/reorder"
 
 const full = ["a", "b", "c", "d", "e"]
+
+describe("enforcePinnedFirst", () => {
+  it("lifts an unpinned note that leads a pinned one", () => {
+    expect(
+      enforcePinnedFirst(["a", "b", "c"], new Set(["b"])),
+    ).toEqual(["b", "a", "c"])
+  })
+
+  it("keeps the manual order inside each region", () => {
+    expect(
+      enforcePinnedFirst(["a", "b", "c", "d"], new Set(["c", "a"])),
+    ).toEqual(["a", "c", "b", "d"])
+  })
+
+  it("leaves a sequence that already leads with the pinned ones alone", () => {
+    expect(
+      enforcePinnedFirst(["a", "c", "b", "d"], new Set(["a", "c"])),
+    ).toEqual(["a", "c", "b", "d"])
+  })
+
+  it("keeps the whole sequence when every note is pinned", () => {
+    expect(enforcePinnedFirst(["b", "a"], new Set(["a", "b"]))).toEqual([
+      "b",
+      "a",
+    ])
+  })
+
+  it("keeps the whole sequence when nothing is pinned", () => {
+    expect(enforcePinnedFirst(["b", "a", "c"], new Set())).toEqual([
+      "b",
+      "a",
+      "c",
+    ])
+  })
+
+  it("does not mutate the input sequence", () => {
+    const order = ["a", "b", "c"]
+
+    const result = enforcePinnedFirst(order, new Set(["c"]))
+
+    expect(order).toEqual(["a", "b", "c"])
+    expect(result).not.toBe(order)
+  })
+})
 
 describe("projectVisibleReorderToFull", () => {
   it("applies a front move in the all-notes view", () => {

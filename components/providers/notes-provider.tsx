@@ -114,7 +114,17 @@ export function NotesProvider({
     (id: string, patch: NoteUpdate) =>
       runMutation(async () => {
         const note = await service.updateNote(id, patch)
-        dispatch({ type: "noteUpserted", note })
+
+        /*
+         * The pinned region is the top of the list, so a patch that moves a note
+         * across its line can move the notes behind it as well: the list is read
+         * back whole rather than patched note by note.
+         */
+        if (patch.isPinned === undefined) {
+          dispatch({ type: "noteUpserted", note })
+        } else {
+          dispatch({ type: "notesReordered", notes: await service.getNotes() })
+        }
 
         return note
       }),
@@ -134,7 +144,14 @@ export function NotesProvider({
     (id: string) =>
       runMutation(async () => {
         const note = await service.togglePin(id)
-        dispatch({ type: "noteUpserted", note })
+
+        /*
+         * Pinning writes the pinned region back to the front of the stored
+         * order, which can change the position of notes the tap never touched.
+         * The list is therefore read back whole instead of carrying a single
+         * note into state with the rest left where they were.
+         */
+        dispatch({ type: "notesReordered", notes: await service.getNotes() })
 
         return note
       }),
