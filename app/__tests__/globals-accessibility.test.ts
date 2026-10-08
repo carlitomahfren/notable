@@ -274,6 +274,15 @@ describe("pointer targets", () => {
       }
 
       if ((remToPx(size) as number) < MIN_TARGET_REM * REM) {
+        /*
+         * The narrow short bar folds the New note button to its 44px icon by
+         * hiding the label with the `.visually-hidden` recipe. That 1px box is a
+         * text span, not a pointer target, so it is exempt from the floor.
+         */
+        if (rule.selectors.includes(".shell-top-bar .shell-new-note__label")) {
+          continue
+        }
+
         offenders.push(`${rule.media} { ${rule.selectors.join(", ")} }`)
       }
     }
@@ -371,6 +380,33 @@ describe("responsive architecture", () => {
   })
 
   /*
+   * The view destinations ask the list pane itself whether it is on screen, so
+   * the cascade has to be the thing that hides it: the base layer gives an open
+   * note the whole screen, and the split layer puts the list back beside the
+   * note once both fit. Both halves are load-bearing — the first is what turns a
+   * press on a phone into a route out of the note, the second is what keeps that
+   * route away from a desktop note that was never in the way.
+   */
+  it("takes the list away for an open note, and only until both panes fit", () => {
+    const base = rules.find((rule) =>
+      rule.selectors.includes('.shell[data-editor-open="true"] .shell-pane--list'),
+    )
+
+    expect(base).toBeDefined()
+    expect(base!.media).toBeNull()
+    expect(declarationsOf(base!).get("display")).toBe("none")
+
+    const split = rules.find(
+      (rule) =>
+        rule.media === "@media (min-width: 768px) and (min-height: 500px)" &&
+        rule.selectors.includes(".shell[data-editor-open] .shell-pane--list"),
+    )
+
+    expect(split).toBeDefined()
+    expect(declarationsOf(split!).get("display")).toBe("flex")
+  })
+
+  /*
    * The phone navigation is a floating pill rather than a bar.
    *
    * These assertions cover the properties that make it float: a capped width rather
@@ -379,6 +415,91 @@ describe("responsive architecture", () => {
    * distribution is the part that matters most, because individually positioned items
    * are what let one long label overlap its neighbour.
    */
+  /*
+   * A portrait phone with the keyboard open is short and narrow at once, so the
+   * top bar has to carry the destinations and the utilities in one row. The
+   * strip scrolls inside itself; the utilities are pinned to their own width so
+   * that right rail can never spill back left over the destinations, and the
+   * brand steps aside exactly as the wide phone rules already decide.
+   */
+  it("keeps the narrow short utilities from painting over the destination strip", () => {
+    const block = "@media (max-width: 767px) and (max-height: 499px)"
+
+    const utilities = rules.find((rule) =>
+      rule.media === block && rule.selectors.includes(".shell-top-bar__utilities"),
+    )
+
+    expect(utilities).toBeDefined()
+    expect(declarationsOf(utilities!).get("flex")).toBe("none")
+
+    const brand = rules.find((rule) =>
+      rule.media === block && rule.selectors.includes(".shell-top-bar__brand"),
+    )
+
+    expect(brand).toBeDefined()
+    expect(declarationsOf(brand!).get("display")).toBe("none")
+
+    const label = rules.find((rule) =>
+      rule.media === block &&
+      rule.selectors.includes(".shell-top-bar .shell-new-note__label"),
+    )
+
+    expect(label).toBeDefined()
+    // The label is hidden from the eye but stays in the accessibility tree, so
+    // the icon-only button keeps "New note" as its name.
+    expect(declarationsOf(label!).get("clip-path")).toContain("inset(50%)")
+
+    const button = rules.find((rule) =>
+      rule.media === block && rule.selectors.includes(".shell-top-bar .shell-new-note"),
+    )
+
+    expect(button).toBeDefined()
+    expect(declarationsOf(button!).get("min-inline-size")).toBe("2.75rem")
+  })
+
+  /*
+   * The same narrow short bar, with the search field open: the field is the whole
+   * point of the bar at that moment, so it takes the utilities row and its
+   * neighbours step aside rather than squat between them.
+   */
+  it("lets the open search field take the narrow short utilities row", () => {
+    const block = "@media (max-width: 767px) and (max-height: 499px)"
+    const open = ".shell-top-bar__utilities:has(.shell-search[data-open=\"true\"])"
+
+    const grow = rules.find((rule) =>
+      rule.media === block && rule.selectors.includes(open),
+    )
+
+    expect(grow).toBeDefined()
+    expect(declarationsOf(grow!).get("flex")).toBe("1 1 auto")
+
+    const neighbours = rules.find((rule) =>
+      rule.media === block &&
+      rule.selectors.some((selector) => selector.startsWith(`${open} > `)),
+    )
+
+    expect(neighbours).toBeDefined()
+    expect(neighbours!.selectors).toEqual(
+      expect.arrayContaining([
+        `${open} > .shell-new-note`,
+        `${open} > .theme-quick-toggle`,
+        `${open} > .shell-settings-button`,
+      ]),
+    )
+    expect(declarationsOf(neighbours!).get("display")).toBe("none")
+
+    // The strip is the bar's only other occupant, and its flex-shrink would
+    // cling to a thin left pocket beside the growing field, so it steps aside
+    // for the duration of the search and returns with the neighbours.
+    const strip = rules.find((rule) =>
+      rule.media === block &&
+      rule.selectors.includes(".shell-top-bar:has(.shell-search[data-open=\"true\"]) .shell-top-bar__nav"),
+    )
+
+    expect(strip).toBeDefined()
+    expect(declarationsOf(strip!).get("display")).toBe("none")
+  })
+
   it("floats the navigation pill instead of stretching it to the edges", () => {
     const pill = rules.find((rule) =>
       rule.selectors.includes(".shell-bottom-nav"),

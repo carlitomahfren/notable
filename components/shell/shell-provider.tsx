@@ -21,6 +21,7 @@ export interface ShellContextValue {
   toggleSearch: () => void
   setListRef: (element: HTMLElement | null) => void
   setTitleRef: (element: HTMLElement | null) => void
+  isListOnScreen: () => boolean
   focusList: () => void
   focusTitle: () => void
   requestTitleFocus: () => void
@@ -55,6 +56,29 @@ export function ShellProvider({ children }: { children: ReactNode }) {
 
   const setTitleRef = useCallback((element: HTMLElement | null) => {
     titleRef.current = element
+  }, [])
+
+  /**
+   * Whether the stylesheet currently has the list pane on screen.
+   *
+   * The cascade decides which panes are up: the base layer takes the list away
+   * while a note is open, and the split layer puts it back once both panes fit.
+   * The answer is therefore read from the pane instead of being re-derived from
+   * the viewport, which would be a second breakpoint source the layout could
+   * drift from. The ref is read when the question is asked, so a press sees the
+   * screen exactly as it is at that moment.
+   *
+   * Before the first commit there is no pane to ask, and no pane can have been
+   * hidden either, so an unknown screen counts as on screen.
+   */
+  const isListOnScreen = useCallback((): boolean => {
+    const pane = listRef.current?.closest(".shell-pane--list")
+
+    if (pane === null || pane === undefined) {
+      return true
+    }
+
+    return getComputedStyle(pane).display !== "none"
   }, [])
 
   const focusList = useCallback(() => {
@@ -102,6 +126,7 @@ export function ShellProvider({ children }: { children: ReactNode }) {
       toggleSearch,
       setListRef,
       setTitleRef,
+      isListOnScreen,
       focusList,
       focusTitle,
       requestTitleFocus,
@@ -117,6 +142,7 @@ export function ShellProvider({ children }: { children: ReactNode }) {
       toggleSearch,
       setListRef,
       setTitleRef,
+      isListOnScreen,
       focusList,
       focusTitle,
       requestTitleFocus,
