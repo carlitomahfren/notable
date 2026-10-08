@@ -13,6 +13,9 @@ import {
   query,
   queryAll,
   renderedTitles,
+  selectTag,
+  selectValue,
+  tagFilter,
   type,
   unmountAll,
 } from "./test-render"
@@ -59,20 +62,9 @@ async function openSearch(container: HTMLElement): Promise<HTMLInputElement> {
   return input
 }
 
-/** Opens the Tags disclosure and picks one tag by name. */
+/** Opens the Tags workspace and picks one tag from its filter by name. */
 async function openTag(container: HTMLElement, tag: string): Promise<void> {
-  await click(navButton("Tags") as HTMLElement)
-
-  const option = queryAll<HTMLElement>(".shell-tags__option", container).find(
-    (element) =>
-      element.querySelector(".shell-tags__name")?.textContent?.trim() === tag,
-  )
-
-  if (option === undefined) {
-    throw new Error(`tag option not found: ${tag}`)
-  }
-
-  await click(option)
+  await selectTag(tag, container)
 }
 
 function workspaceName(container: ParentNode = document): string | null {
@@ -92,50 +84,42 @@ function seed() {
 }
 
 describe("the tags workspace", () => {
-  it("lists every tag with the number of notes in it", async () => {
+  it("lists every tag once in its filter, most used first", async () => {
     await seedStorage(seed())
 
     const container = await renderWithProviders(listUi())
 
     await click(navButton("Tags") as HTMLElement)
 
-    // Both bars are mounted, so only the top bar's copy is inspected here.
-    const options = queryAll(
-      '.shell-tags[data-placement="topbar"] .shell-tags__option',
-      container,
-    )
+    const options = Array.from(tagFilter(container).options)
 
-    expect(options.map((option) => option.querySelector(".shell-tags__name")?.textContent)).toEqual([
-      "ideas",
-      "work",
+    expect(options.map((option) => option.value)).toEqual(["", "ideas", "work"])
+    expect(options.map((option) => option.textContent)).toEqual([
+      "All Tags",
+      "#ideas",
+      "#work",
     ])
-    expect(
-      options.map((option) => option.querySelector(".shell-tags__count")?.textContent),
-    ).toEqual(["2", "2"])
-    expect(options[1].textContent).toContain("2 notes")
   })
 
-  it("says when there is nothing to tag yet", async () => {
-    await seedStorage([])
+  it("keeps the filter to All Tags when notes carry no tags", async () => {
+    await seedStorage([makeNote({ title: "Alpha" })])
 
     const container = await renderWithProviders(listUi())
 
     await click(navButton("Tags") as HTMLElement)
 
-    expect(query(".shell-tags__empty", container)?.textContent?.trim()).toBe(
-      "No tags yet",
-    )
-    expect(queryAll(".shell-tags__option", container)).toHaveLength(0)
+    expect(Array.from(tagFilter(container).options)).toHaveLength(1)
+    expect(workspaceCount(container)).toBe("1 note")
   })
 
-  it("names the tag and counts it once a tag is chosen", async () => {
+  it("names the workspace and counts it once a tag is chosen", async () => {
     await seedStorage(seed())
 
     const container = await renderWithProviders(listUi())
 
     await openTag(container, "work")
 
-    expect(workspaceName(container)).toBe("work")
+    expect(workspaceName(container)).toBe("Tags")
     expect(workspaceCount(container)).toBe("2 notes")
   })
 
@@ -176,7 +160,7 @@ describe("the tags workspace", () => {
     expect(workspaceName(container)).toBeNull()
   })
 
-  it("heads the page with the tag while the list is standing alone", async () => {
+  it("heads the page with the workspace while the list is standing alone", async () => {
     await seedStorage(seed())
 
     const container = await renderWithProviders(listUi())
@@ -189,6 +173,7 @@ describe("the tags workspace", () => {
      */
     const name = query(".notes-workspace__name", container)
 
+    expect(name?.textContent?.trim()).toBe("Tags")
     expect(name?.tagName).toBe("H1")
     expect(queryAll("h1", container)).toHaveLength(1)
   })
@@ -221,7 +206,7 @@ describe("the tags workspace", () => {
     await type(await openSearch(container), "release")
 
     expect(renderedTitles(container)).toEqual(["Alpha"])
-    expect(workspaceName(container)).toBe("work")
+    expect(workspaceName(container)).toBe("Tags")
     expect(workspaceCount(container)).toBe("1 of 2 notes")
   })
 
@@ -239,7 +224,7 @@ describe("the tags workspace", () => {
     expect(workspaceCount(container)).toBe("0 of 2 notes")
   })
 
-  it("steps back out to every note", async () => {
+  it("steps back out to every note through All Tags", async () => {
     await seedStorage(seed())
 
     const container = await renderWithProviders(listUi())
@@ -248,10 +233,11 @@ describe("the tags workspace", () => {
 
     expect(renderedTitles(container)).toEqual(["Beta", "Gamma"])
 
-    await click(byLabelText("Show all notes", container) as HTMLElement)
+    await selectValue(tagFilter(container), "")
 
     expect(renderedTitles(container)).toEqual(["Alpha", "Beta", "Gamma"])
-    expect(workspaceName(container)).toBeNull()
+    expect(workspaceName(container)).toBe("Tags")
+    expect(workspaceCount(container)).toBe("3 notes")
   })
 
   it("still selects, selects all, and bulk deletes inside a tag", async () => {
@@ -271,7 +257,7 @@ describe("the tags workspace", () => {
 
     // Only the tagged notes went: the note in another tag is untouched.
     expect(storedNotes().map((note) => note.title)).toEqual(["Gamma"])
-    expect(workspaceName(container)).toBe("work")
+    expect(workspaceName(container)).toBe("Tags")
     expect(workspaceCount(container)).toBe("0 notes")
   })
 
@@ -293,6 +279,6 @@ describe("the tags workspace", () => {
     expect(query(".notes-empty__title", container)?.textContent?.trim()).toBe(
       "No notes tagged #work.",
     )
-    expect(workspaceName(container)).toBe("work")
+    expect(workspaceName(container)).toBe("Tags")
   })
 })

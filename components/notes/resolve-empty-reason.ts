@@ -29,5 +29,9 @@ export function resolveEmptyReason({
     return "no-pinned"
   }
 
-  return "no-tagged-notes"
+  if (view.kind === "tag") {
+    return "no-tagged-notes"
+  }
+
+  return "no-notes"
 }

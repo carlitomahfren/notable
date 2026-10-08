@@ -75,6 +75,65 @@ export async function type(
   await flush()
 }
 
+/**
+ * Picks an option in a native select the way a pointer or keyboard would:
+ * jsdom cannot open the platform menu, so the value is set on the element and
+ * a bubbling `change` is dispatched for the handler to observe.
+ */
+export async function selectValue(
+  element: HTMLSelectElement,
+  value: string,
+): Promise<void> {
+  const setter = Object.getOwnPropertyDescriptor(
+    window.HTMLSelectElement.prototype,
+    "value",
+  )?.set
+
+  await act(async () => {
+    setter?.call(element, value)
+    element.dispatchEvent(new Event("change", { bubbles: true }))
+  })
+
+  await flush()
+}
+
+/** The tag filter of the Tags workspace header. */
+export function tagFilter(root: ParentNode = document): HTMLSelectElement {
+  const select = query<HTMLSelectElement>(".notes-workspace__filter", root)
+
+  if (select === null) {
+    throw new Error("tag filter not found (is the Tags workspace open?)")
+  }
+
+  return select
+}
+
+/** One option of the tag filter, by its value. */
+export function tagOption(
+  tag: string,
+  root: ParentNode = document,
+): HTMLOptionElement {
+  const filter = tagFilter(root)
+  const option = Array.from(filter.options).find(
+    (candidate) => candidate.value === tag,
+  )
+
+  if (option === undefined) {
+    throw new Error(`tag option not found in the filter: ${tag}`)
+  }
+
+  return option
+}
+
+/** Opens the Tags workspace and picks one tag from its filter. */
+export async function selectTag(
+  tag: string,
+  root: ParentNode = document,
+): Promise<void> {
+  await click(navButton("Tags", root))
+  await selectValue(tagFilter(root), tag)
+}
+
 export function queryAll<T extends Element = HTMLElement>(
   selector: string,
   root: ParentNode = document,

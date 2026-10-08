@@ -20,6 +20,7 @@ import {
   query,
   queryAll,
   renderedTitles,
+  selectTag,
   unmountAll,
 } from "./test-render"
 
@@ -55,22 +56,6 @@ afterEach(async () => {
 
 function navItem(label: string, root: ParentNode = document): HTMLElement {
   return navButton(label, root)
-}
-
-/** Tags live in a disclosure, so the tag is chosen from the opened panel. */
-async function selectTag(root: ParentNode, tag: string): Promise<void> {
-  await click(navButton("Tags", root))
-
-  const option = queryAll<HTMLElement>(".shell-tags__option", root).find(
-    (element) =>
-      element.querySelector(".shell-tags__name")?.textContent?.trim() === tag,
-  )
-
-  if (option === undefined) {
-    throw new Error(`tag option not found: ${tag}`)
-  }
-
-  await click(option)
 }
 
 /*
@@ -408,9 +393,9 @@ describe("tag view with no matching notes", () => {
 
     const container = await renderWithProviders(<NotesShell>{null}</NotesShell>)
 
-    await selectTag(container, "work")
+    await selectTag("work", container)
     await click(navItem("All Notes", container))
-    await selectTag(container, "work")
+    await selectTag("work", container)
 
     expect(renderedTitles(container)).toEqual(["Alpha"])
   })

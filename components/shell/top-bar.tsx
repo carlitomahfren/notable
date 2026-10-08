@@ -5,7 +5,7 @@ import { useNotesListView } from "@/components/notes/use-notes-list-view"
 import { ExpandableSearch } from "@/components/shell/expandable-search"
 import { HomeNavLink } from "@/components/shell/home-nav-link"
 import { PrimaryNav } from "@/components/shell/primary-nav"
-import { TagsDisclosure } from "@/components/shell/tags-disclosure"
+import { TagsNav } from "@/components/shell/tags-nav"
 import { ThemeQuickToggle } from "@/components/shell/theme-quick-toggle"
 import { NewNoteButton } from "@/components/shell/new-note-button"
 import { Settings } from "lucide-react"
@@ -31,7 +31,7 @@ export function TopBar({ onOpenPersonalize }: TopBarProps) {
         </div>
 
         <PrimaryNav placement="topbar" />
-        <TagsDisclosure placement="topbar" />
+        <TagsNav placement="topbar" />
       </nav>
 
       <div className="shell-top-bar__utilities">

@@ -1,13 +1,12 @@
 // @vitest-environment jsdom
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { act } from "react"
 
 import { NoteEditor } from "@/components/editor/note-editor"
 import { NotesShell } from "@/components/shell/notes-shell"
 import { makeNote, resetNoteIds } from "@/lib/notes/__tests__/note-factory"
 
-import { byLabelText, click, query, queryAll, unmountAll } from "./test-render"
+import { byLabelText, click, query, queryAll, selectTag, selectValue, tagFilter, unmountAll } from "./test-render"
 
 import { clearStorage, renderWithProviders, seedStorage } from "./test-harness"
 
@@ -215,69 +214,49 @@ describe("keyboard reachability", () => {
   })
 
   /*
-   * The tags disclosure is the replacement for the old drawer: it opens without
-   * a dialog so focus is never trapped, and Escape returns it to the trigger.
+   * Tags is a workspace destination now, not a disclosure: the trigger changes
+   * the view in the same single step as All Notes, and there is no panel left
+   * to trap focus in or dismiss with Escape.
    */
-  it("escapes the tags panel back to its trigger", async () => {
+  it("keeps the Tags trigger clear of disclosure semantics", async () => {
     const container = await renderWithProviders(<NotesShell>{null}</NotesShell>)
 
-    const trigger = query(".shell-tags__trigger", container) as HTMLElement
+    const trigger = query(".shell-tags__trigger", container)
 
-    trigger.focus()
-    await click(trigger)
-
-    const panel = query(".shell-tags__panel", container)
-
-    expect(panel?.hasAttribute("hidden")).toBe(false)
-
-    await act(async () => {
-      trigger.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      )
-    })
-
-    expect(query(".shell-tags__panel", container)?.hasAttribute("hidden")).toBe(true)
-    expect(document.activeElement).toBe(trigger)
+    expect(trigger?.getAttribute("aria-expanded")).toBeNull()
+    expect(trigger?.getAttribute("aria-controls")).toBeNull()
+    expect(query(".shell-tags__panel", container)).toBeNull()
   })
 
   /*
-   * Both bars keep a copy of the disclosure mounted. Escape must return focus to
-   * the trigger the user actually pressed, not to the hidden copy in the other
-   * bar, or focus would land on a control that is not on screen.
+   * The workspace filter is what replaced the panel's list of tags. It is a
+   * native select, so the platform owns the menu and the only remaining
+   * obligation is that the close at the header has an accessible name.
    */
-  it("returns focus to the pressed trigger, not the hidden duplicate", async () => {
+  it("names the tag filter for assistive technology", async () => {
     const container = await renderWithProviders(<NotesShell>{null}</NotesShell>)
 
-    const triggers = queryAll(".shell-tags__trigger", container)
+    await selectTag("work")
 
-    expect(triggers).toHaveLength(2)
+    const filter = tagFilter(container)
+    const label = filter.labels?.[0]
 
-    triggers[1].focus()
-    await click(triggers[1])
-
-    await act(async () => {
-      triggers[1].dispatchEvent(
-        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-      )
-    })
-
-    expect(document.activeElement).toBe(triggers[1])
+    expect(label?.textContent?.trim()).toBe("Filter notes by tag")
+    expect(label?.getAttribute("for")).toBe(filter.id)
   })
 
-  it("closes the tags panel when a pointer lands outside it", async () => {
+  it("marks the trigger current for the whole workspace, tag or not", async () => {
     const container = await renderWithProviders(<NotesShell>{null}</NotesShell>)
 
-    await click(query(".shell-tags__trigger", container) as HTMLElement)
+    await selectTag("work")
 
-    expect(query(".shell-tags__panel", container)?.hasAttribute("hidden")).toBe(false)
+    const [, mobile] = queryAll(".shell-tags__trigger", container)
 
-    await act(async () => {
-      document.querySelector("main")?.dispatchEvent(
-        new MouseEvent("mousedown", { bubbles: true }),
-      )
-    })
+    expect(mobile.getAttribute("aria-current")).toBe("true")
 
-    expect(query(".shell-tags__panel", container)?.hasAttribute("hidden")).toBe(true)
+    await selectValue(tagFilter(container), "")
+
+    expect(mobile.getAttribute("aria-current")).toBe("true")
   })
 
   it("hides the collapsed search field from the tab order", async () => {

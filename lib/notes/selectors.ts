@@ -5,6 +5,7 @@ export const UNTITLED_NOTE_LABEL = "Untitled"
 export type NoteFilter =
   | { kind: "all" }
   | { kind: "pinned" }
+  | { kind: "tags" }
   | { kind: "tag"; tag: string }
 
 export interface TagSummary {

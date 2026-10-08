@@ -1056,10 +1056,20 @@ describe("editor hierarchy", () => {
       "visually-hidden", // the title's own label
       "editor__title-input",
       "editor-tags",
+      "editor__writing", // the mode switch, the formatting row and the note body
+      "editor__footer",
+    ])
+
+    // The window keeps the reading order of the note it holds.
+    const surface = query(".editor__writing-surface", editor as ParentNode)
+    const windowOrder = Array.from(surface?.children ?? []).map((child) =>
+      child.className.toString(),
+    )
+
+    expect(windowOrder).toEqual([
       "editor__toolbar-row", // the mode switch, and the control that resizes the note
       "editor-toolbar", // the formatting row, above the writing surface
       "editor__panel", // the note body, in whichever mode owns it
-      "editor__footer",
     ])
   })
 
@@ -1081,8 +1091,8 @@ describe("editor hierarchy", () => {
     expect(panel?.contains(toolbar as HTMLElement)).toBe(false)
 
     // It is still the row immediately above the surface, in both the visual and tab order.
-    const editor = query(".editor", container)
-    const order = Array.from(editor?.children ?? []).map((child) =>
+    const surface = query(".editor__writing-surface", container) as ParentNode
+    const order = Array.from(surface.children).map((child) =>
       child.className.toString(),
     )
 
@@ -1167,15 +1177,17 @@ describe("editor hierarchy", () => {
       await click(close as HTMLElement)
 
       expect(byLabelText("Expand writing area", container)).not.toBeNull()
-      expect(query(".editor", container)?.getAttribute("data-expanded")).toBe(null)
+      expect(query(".editor__writing", container)?.getAttribute("data-expanded")).toBe(null)
     })
 
-    it("marks the editor itself as expanded so the CSS can give it the window", async () => {
+    it("marks the window itself as expanded so the CSS can draw it", async () => {
       const { container, control } = await openExpanded()
 
       await click(control)
 
-      expect(query(".editor", container)?.getAttribute("data-expanded")).toBe("true")
+      expect(query(".editor__writing", container)?.getAttribute("data-expanded")).toBe(
+        "true",
+      )
     })
 
     it("closes on Escape from inside the note", async () => {
@@ -1184,7 +1196,9 @@ describe("editor hierarchy", () => {
       await click(control)
       await pressKey(proseElement(container), "Escape")
 
-      expect(query(".editor", container)?.getAttribute("data-expanded")).toBe(null)
+      expect(query(".editor__writing", container)?.getAttribute("data-expanded")).toBe(
+        null,
+      )
       expect(byLabelText("Expand writing area", container)).not.toBeNull()
     })
 
@@ -1228,7 +1242,100 @@ describe("editor hierarchy", () => {
 
       await click(control as HTMLElement)
 
-      expect(query(".editor", container)?.getAttribute("data-expanded")).toBe("true")
+      expect(query(".editor__writing", container)?.getAttribute("data-expanded")).toBe(
+        "true",
+      )
+    })
+
+    /*
+     * The window is a dialog by role, not by element: the control announces that it
+     * opens one, and the box has the dialog's landmarks only while it is a window, so
+     * an ordinary column in the flow is never announced as a modal when the note is
+     * simply being read.
+     */
+    it("is a dialog, and says so only while it is open", async () => {
+      const { container, control } = await openExpanded()
+
+      expect(control.getAttribute("aria-haspopup")).toBe("dialog")
+
+      const window = query(".editor__writing", container) as HTMLElement
+
+      expect(window.getAttribute("role")).toBeNull()
+      expect(window.getAttribute("aria-modal")).toBeNull()
+
+      await click(control)
+
+      expect(window.getAttribute("role")).toBe("dialog")
+      expect(window.getAttribute("aria-modal")).toBe("true")
+      expect(window.getAttribute("aria-label")).toContain("expanded writing area")
+      expect(window.getAttribute("aria-label")).toContain("Draft")
+
+      await click(byLabelText("Close expanded writing area", container) as HTMLElement)
+
+      expect(window.getAttribute("role")).toBeNull()
+      expect(window.getAttribute("aria-modal")).toBeNull()
+    })
+
+    it("leaves the window on a click on the glass around the card", async () => {
+      const { container, control } = await openExpanded()
+
+      await click(control)
+
+      const window = query(".editor__writing", container) as HTMLElement
+
+      await click(window)
+
+      expect(window.getAttribute("data-expanded")).toBe(null)
+    })
+
+    it("keeps the window open when the note itself is clicked", async () => {
+      const { container, control } = await openExpanded()
+
+      await click(control)
+
+      const window = query(".editor__writing", container) as HTMLElement
+
+      await click(proseElement(container))
+
+      expect(window.getAttribute("data-expanded")).toBe("true")
+    })
+
+    /*
+     * The window is a modal, so Tab stops at its own edges. The platform would do this
+     * for a native dialog, but a native dialog cannot be an ordinary column of the page
+     * the moment it is closed, so the boundary is written on the window instead and
+     * must be tested where it is written.
+     */
+    it("keeps Tab inside the window, wrapping at its seams", async () => {
+      const { container, control } = await openExpanded()
+
+      await click(control)
+
+      const window = query(".editor__writing", container) as HTMLElement
+      const focusable = () =>
+        Array.from(
+          window.querySelectorAll<HTMLElement>(
+            'button:not([disabled]), a[href], [tabindex]:not([tabindex="-1"]), [contenteditable="true"]',
+          ),
+        )
+
+      const items = focusable()
+
+      const first = items[0]
+      const last = items[items.length - 1]
+
+      expect(first).toBeDefined()
+      expect(last).toBeDefined()
+
+      last.focus()
+      await pressKey(last, "Tab")
+
+      expect(document.activeElement).toBe(first)
+
+      first.focus()
+      await pressKey(first, "Tab", { shiftKey: true })
+
+      expect(document.activeElement).toBe(last)
     })
   })
 

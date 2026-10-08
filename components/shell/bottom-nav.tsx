@@ -4,7 +4,7 @@ import { Settings } from "lucide-react"
 
 import { HomeNavLink } from "@/components/shell/home-nav-link"
 import { PrimaryNav } from "@/components/shell/primary-nav"
-import { TagsDisclosure } from "@/components/shell/tags-disclosure"
+import { TagsNav } from "@/components/shell/tags-nav"
 
 interface BottomNavProps {
   onOpenPersonalize: () => void
@@ -29,7 +29,7 @@ export function BottomNav({ onOpenPersonalize }: BottomNavProps) {
       </div>
 
       <PrimaryNav placement="bottom" />
-      <TagsDisclosure placement="bottom" />
+      <TagsNav placement="bottom" />
       <div className="shell-bottom-nav__slot">
         <button type="button" className="shell-nav-button" onClick={onOpenPersonalize}>
           <Settings aria-hidden="true" className="shell-nav-button__icon" />

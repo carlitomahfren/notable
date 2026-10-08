@@ -9,13 +9,11 @@ import {
 
 const CLOSED: ShellState = {
   isSearchOpen: false,
-  isTagsOpen: false,
   titleFocusRequested: false,
   listFocusRequested: false,
 }
 
 const SEARCH_OPEN: ShellState = { ...CLOSED, isSearchOpen: true }
-const TAGS_OPEN: ShellState = { ...CLOSED, isTagsOpen: true }
 const TITLE_REQUESTED: ShellState = { ...CLOSED, titleFocusRequested: true }
 
 describe("shellReducer", () => {
@@ -44,47 +42,6 @@ describe("shellReducer", () => {
 
     expect(opened).toEqual(SEARCH_OPEN)
     expect(shellReducer(opened, { type: "searchToggled" })).toEqual(CLOSED)
-  })
-
-  it("opens tags", () => {
-    expect(shellReducer(CLOSED, { type: "tagsOpened" })).toEqual(TAGS_OPEN)
-  })
-
-  it("closes tags", () => {
-    expect(shellReducer(TAGS_OPEN, { type: "tagsClosed" })).toEqual(CLOSED)
-  })
-
-  it("toggles tags open and closed", () => {
-    const opened = shellReducer(CLOSED, { type: "tagsToggled" })
-
-    expect(opened).toEqual(TAGS_OPEN)
-    expect(shellReducer(opened, { type: "tagsToggled" })).toEqual(CLOSED)
-  })
-
-  /*
-   * Search and tags share the top chrome. Allowing both to be open would stack
-   * two panels in the same bar, which on a phone pushes the navigation off
-   * screen.
-   */
-  it("closes tags when search opens", () => {
-    expect(shellReducer(TAGS_OPEN, { type: "searchOpened" })).toEqual(SEARCH_OPEN)
-  })
-
-  it("closes search when tags open", () => {
-    expect(shellReducer(SEARCH_OPEN, { type: "tagsOpened" })).toEqual(TAGS_OPEN)
-  })
-
-  it("closes tags when search is toggled open", () => {
-    expect(shellReducer(TAGS_OPEN, { type: "searchToggled" })).toEqual(SEARCH_OPEN)
-  })
-
-  it("closes search when tags are toggled open", () => {
-    expect(shellReducer(SEARCH_OPEN, { type: "tagsToggled" })).toEqual(TAGS_OPEN)
-  })
-
-  it("leaves the other panel alone when closing one", () => {
-    expect(shellReducer(TAGS_OPEN, { type: "searchClosed" })).toBe(TAGS_OPEN)
-    expect(shellReducer(SEARCH_OPEN, { type: "tagsClosed" })).toBe(SEARCH_OPEN)
   })
 
   it("never mutates the previous state", () => {
@@ -119,7 +76,6 @@ describe("shellReducer", () => {
 
     expect(both).toEqual({
       isSearchOpen: true,
-      isTagsOpen: false,
       titleFocusRequested: true,
       listFocusRequested: false,
     })
@@ -130,7 +86,6 @@ describe("shellReducer", () => {
 
     expect(requested).toEqual({
       isSearchOpen: false,
-      isTagsOpen: false,
       titleFocusRequested: false,
       listFocusRequested: true,
     })
@@ -147,7 +102,6 @@ describe("shellReducer", () => {
 
     expect(both).toEqual({
       isSearchOpen: false,
-      isTagsOpen: false,
       titleFocusRequested: true,
       listFocusRequested: true,
     })

@@ -15,14 +15,10 @@ import { initialShellState, isEditorScreenPath, shellReducer } from "./shell-sta
 
 export interface ShellContextValue {
   isSearchOpen: boolean
-  isTagsOpen: boolean
   isEditorScreen: boolean
   openSearch: () => void
   closeSearch: () => void
   toggleSearch: () => void
-  openTags: () => void
-  closeTags: () => void
-  toggleTags: () => void
   setListRef: (element: HTMLElement | null) => void
   setTitleRef: (element: HTMLElement | null) => void
   focusList: () => void
@@ -51,18 +47,6 @@ export function ShellProvider({ children }: { children: ReactNode }) {
 
   const toggleSearch = useCallback(() => {
     dispatch({ type: "searchToggled" })
-  }, [])
-
-  const openTags = useCallback(() => {
-    dispatch({ type: "tagsOpened" })
-  }, [])
-
-  const closeTags = useCallback(() => {
-    dispatch({ type: "tagsClosed" })
-  }, [])
-
-  const toggleTags = useCallback(() => {
-    dispatch({ type: "tagsToggled" })
   }, [])
 
   const setListRef = useCallback((element: HTMLElement | null) => {
@@ -112,14 +96,10 @@ export function ShellProvider({ children }: { children: ReactNode }) {
   const value = useMemo<ShellContextValue>(
     () => ({
       isSearchOpen: state.isSearchOpen,
-      isTagsOpen: state.isTagsOpen,
       isEditorScreen: isEditorScreenPath(pathname),
       openSearch,
       closeSearch,
       toggleSearch,
-      openTags,
-      closeTags,
-      toggleTags,
       setListRef,
       setTitleRef,
       focusList,
@@ -131,14 +111,10 @@ export function ShellProvider({ children }: { children: ReactNode }) {
     }),
     [
       state.isSearchOpen,
-      state.isTagsOpen,
       pathname,
       openSearch,
       closeSearch,
       toggleSearch,
-      openTags,
-      closeTags,
-      toggleTags,
       setListRef,
       setTitleRef,
       focusList,

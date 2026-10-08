@@ -12,6 +12,7 @@ import {
 export type WorkspaceView =
   | { kind: "all" }
   | { kind: "pinned" }
+  | { kind: "tags" }
   | { kind: "tag"; tag: string }
 
 export interface WorkspaceState {

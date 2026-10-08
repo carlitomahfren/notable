@@ -214,7 +214,7 @@ describe("pointer targets", () => {
   const CONTROLS: [string, string, boolean][] = [
     ["navigation destination", ".shell-nav-button", false],
     ["tags trigger", ".shell-tags__trigger", false],
-    ["tag option", ".shell-tags__option", false],
+    ["tag filter", ".notes-workspace__filter", false],
     ["new note button", ".shell-new-note", false],
     ["search toggle", ".shell-search__toggle", true],
     ["search input", ".shell-search__input", false],
@@ -1064,18 +1064,19 @@ describe("the note document", () => {
     /*
      * The attribute is what lets CSS hand the note the window, which is the whole point
      * of opening it: no second editor, no measurement in JavaScript, nothing that would
-     * have to be undone when the reader closes it again.
+     * have to be undone when the reader closes it again. The attribute lives on the
+     * window itself, never on the page's editor box.
      */
-    const expanded = rules.find((rule) =>
-      rule.selectors.includes('.editor[data-expanded="true"]'),
+    const layer = rules.find((rule) =>
+      rule.selectors.includes('.editor__writing[data-expanded="true"]'),
     )
 
-    it("is reached by an attribute on the editor itself", () => {
-      expect(expanded).toBeDefined()
+    it("is reached by an attribute on the window itself", () => {
+      expect(layer).toBeDefined()
     })
 
     it("takes the window rather than only asking for more room", () => {
-      const declarations = declarationsOf(expanded!)
+      const declarations = declarationsOf(layer!)
 
       expect(declarations.get("position")).toBe("fixed")
       expect(declarations.get("inset")).toBe("0")
@@ -1086,15 +1087,62 @@ describe("the note document", () => {
       expect(declarations.get("block-size")).toBe("100dvh")
     })
 
-    it("sits above the shell and stays opaque, since it covers it", () => {
-      const declarations = declarationsOf(expanded!)
+    it("sits above the shell and dims it instead of replacing it", () => {
+      const declarations = declarationsOf(layer!)
 
+      /*
+       * Above the skip link and every floating control, and the dim is the backdrop
+       * token, so the note list stays readable behind the glass.
+       */
       expect(declarations.get("z-index")).toBeDefined()
-      expect(declarations.get("background")).toBe("var(--background)")
+      expect(declarations.get("background")).toBe("var(--backdrop)")
+      expect(declarations.get("overscroll-behavior")).toBe("contain")
     })
 
-    it("clips its own contents, so the footer cannot push the note off screen", () => {
-      expect(declarationsOf(expanded!).get("overflow")).toBe("hidden")
+    it("drops the note onto a card that fills the glass", () => {
+      const card = rules.find((rule) =>
+        rule.selectors.includes(
+          '.editor__writing[data-expanded="true"] > .editor__writing-surface',
+        ),
+      )
+
+      expect(card).toBeDefined()
+      expect(card?.body).toContain("inline-size: 100%")
+      expect(card?.body).toContain("block-size: 100%")
+      /*
+       * The same card the dialogs draw: surface token, strong hairline, widest radius.
+       * It is what makes a window over the app read as the same object as a question
+       * over the app.
+       */
+      expect(card?.body).toContain("background: var(--surface)")
+      expect(card?.body).toContain("border: 1px solid var(--border-strong)")
+      expect(card?.body).toContain("border-radius: var(--radius-lg)")
+    })
+
+    /*
+     * The regression this block exists for: an expansion that put the `position` on the
+     * editor's own box took the note out of its pane and laid it over the app, and a
+     * background there read as a second page underneath the one being written on. The
+     * window lives on its own layer, and the two boxes that hold the editor in the flow
+     * keep none of the window on them.
+     */
+    it("leaves the editor in the flow until the window is opened", () => {
+      const editorRule = rules.find((rule) => rule.selectors.includes(".editor"))
+
+      expect(editorRule).toBeDefined()
+      expect(declarationsOf(editorRule!).get("position")).toBeUndefined()
+
+      for (const selector of [".editor__writing", ".editor__writing-surface"]) {
+        const flow = rules.find((rule) => rule.selectors.includes(selector))
+
+        expect(flow, selector).toBeDefined()
+
+        const declarations = declarationsOf(flow!)
+
+        expect(declarations.get("position"), selector).toBeUndefined()
+        expect(declarations.get("z-index"), selector).toBeUndefined()
+        expect(declarations.get("background"), selector).toBeUndefined()
+      }
     })
   })
 
@@ -1253,12 +1301,14 @@ describe("the note document", () => {
  */
 describe("the editor rhythm", () => {
   it("takes the editor's vertical gaps from the two space tokens", () => {
-    for (const selector of [
-      ".editor",
-      ".editor__footer",
-      ".editor__panel",
-      ".editor__toolbar-row",
-    ]) {
+for (const selector of [
+        ".editor",
+        ".editor__writing",
+        ".editor__writing-surface",
+        ".editor__footer",
+        ".editor__panel",
+        ".editor__toolbar-row",
+      ]) {
       const rule = rules.find((candidate) => candidate.selectors.includes(selector))
 
       expect(rule?.body, selector).toMatch(/gap:\s*var\(--space(-tight)?\)/)

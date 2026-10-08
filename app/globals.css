@@ -517,38 +517,20 @@ body {
   block-size: 1.125rem;
 }
 
-.shell-tags__panel {
-  position: absolute;
-  inset-inline-start: 0;
-  inset-block-start: calc(100% + 0.375rem);
-  z-index: 30;
-  inline-size: max-content;
-  min-inline-size: 12rem;
-  max-inline-size: min(18rem, calc(100vw - 2rem));
-  max-block-size: min(20rem, 60dvh);
-  overflow: auto;
-  padding: 0.375rem;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  box-shadow: 0 12px 32px -12px rgb(0 0 0 / 0.35);
-}
-
 /*
  * ENTRY MOTION
  *
- * The search field and the tags panel start from `display: none`, so the browser
- * has nothing to interpolate. `@starting-style` supplies the "before" state for the
- * transition that runs when they are revealed, and `allow-discrete` keeps the
- * element visible for the length of that transition. Where the feature is
- * unsupported both simply appear instantly, which is a safe fallback.
+ * The search field starts from `display: none`, so the browser has nothing to
+ * interpolate. `@starting-style` supplies the "before" state for the transition
+ * that runs when the field is revealed, and `allow-discrete` keeps the element
+ * visible for the length of that transition. Where the feature is unsupported it
+ * simply appears instantly, which is a safe fallback.
  *
- * The search reveal moves and fades only. Animating `inline-size` instead would
- * reflow the input and its placeholder on every frame and reflow the note list
- * behind it, which costs far more than it communicates.
+ * The reveal moves and fades only. Animating `inline-size` instead would reflow
+ * the input and its placeholder on every frame and reflow the note list behind
+ * it, which costs far more than it communicates.
  */
-.shell-search__field,
-.shell-tags__panel {
+.shell-search__field {
   opacity: 1;
   transition:
     opacity var(--motion-fast) var(--ease-standard),
@@ -562,73 +544,6 @@ body {
     opacity: 0;
     transform: translateX(0.5rem);
   }
-
-  .shell-tags__panel {
-    opacity: 0;
-    transform: translateY(-0.25rem);
-  }
-}
-
-.shell-tags[data-placement="bottom"] .shell-tags__panel {
-  inset-block-start: auto;
-  inset-block-end: calc(100% + 0.5rem);
-}
-
-@starting-style {
-  .shell-tags[data-placement="bottom"] .shell-tags__panel {
-    opacity: 0;
-    transform: translateY(0.25rem);
-  }
-}
-
-.shell-tags__list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.125rem;
-}
-
-.shell-tags__option {
-  inline-size: 100%;
-  min-block-size: 2.75rem;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.75rem;
-  padding: 0.375rem 0.625rem;
-  background: transparent;
-  color: inherit;
-  border: 0;
-  border-radius: var(--radius-sm);
-  font: inherit;
-  font-size: 0.875rem;
-  text-align: start;
-  cursor: pointer;
-}
-
-.shell-tags__name {
-  overflow-wrap: anywhere;
-}
-
-.shell-tags__option[aria-current] {
-  background: var(--control-selected);
-  font-weight: 600;
-}
-
-.shell-tags__count {
-  flex: none;
-  font-size: 0.8125rem;
-  font-variant-numeric: tabular-nums;
-  opacity: 0.7;
-}
-
-.shell-tags__empty {
-  margin: 0;
-  padding: 0.625rem;
-  font-size: 0.875rem;
-  opacity: 0.7;
 }
 
 /* EXPANDABLE SEARCH ----------------------------------------------------- */
@@ -1137,29 +1052,27 @@ body {
 }
 
 /*
- * Stepping out of a tag is a view change, so it is a plain quiet button rather than a
- * second navigation destination: the top bar already says where you are.
+ * The tag filter is the only control that steps between views of the Tags
+ * workspace, so it is a native select: one tab stop, one Enter, and the platform
+ * menu for the options. It stays readable on narrow panes by never growing past
+ * the list it sits in.
  */
-.notes-workspace__exit {
-  min-block-size: 2.75rem;
-  padding-inline: 0.625rem;
+.notes-workspace__filter {
   flex: none;
-  background: transparent;
-  color: var(--muted-foreground);
-  border: 1px solid transparent;
+  min-block-size: 2.75rem;
+  padding: 0.375rem 0.625rem;
+  max-inline-size: 100%;
+  background: var(--surface);
+  color: inherit;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-md);
   font: inherit;
-  font-size: 0.8125rem;
-  white-space: nowrap;
+  font-size: 0.875rem;
   cursor: pointer;
-  transition:
-    background var(--motion-fast) var(--ease-standard),
-    color var(--motion-fast) var(--ease-standard);
 }
 
-.notes-workspace__exit:hover {
+.notes-workspace__filter:hover {
   background: var(--control-hover);
-  color: var(--foreground);
 }
 
 .note-list {
@@ -1980,27 +1893,81 @@ body {
 }
 
 /*
- * EXPANDED
+ * THE WRITING WINDOW
  *
- * The same editor in the same place, given the whole window. Nothing is remounted to
- * do it, so the caret, the undo stack and the draft are the ones the reader already
- * had, and the way back out is Escape or the control that opened it.
+ * Two boxes that are one thing. In the flow, the outer box is the column between the
+ * tags and the footer and the inner box is the same column one level down: the mode
+ * tabs, the formatting row and the panel, spaced exactly as they were when they were
+ * the editor's own children. Given the screen, the outer box becomes the glass over
+ * the app and the inner box becomes the card floating on it, holding the same
+ * toolbar, the same panel and the same editor instance — so the caret, the undo stack
+ * and the draft are the reader's own, and nothing is remounted to open the window.
  *
- * It is not a modal, and it does not pretend to be one: the note list behind is still
- * reachable and still readable by assistive technology, which is the honest description
- * of a bigger window rather than a trap.
+ * Everything here is written against `data-expanded`, never against the bare
+ * elements. The outer box is in the flow whether or not it is a window, so a
+ * `position`, a `z-index` or a background of its own would take the note out of its
+ * pane and lay a dimmed sheet over the app from first paint. That is the same failure
+ * the dialogs above were fixed for, and this is the same cure: a declaration that
+ * draws the window exists only where a window is open.
  *
- * `100dvh` rather than a stretched height alone, so a phone's collapsing toolbar
- * cannot leave the writing area taller than the window it is on.
+ * The dimming is the box's own background rather than a `::backdrop`, because this is
+ * not a native dialog and there is no backdrop to paint: the layer is the whole
+ * screen, and the card is the only thing on it that is not behind glass.
  */
-.editor[data-expanded="true"] {
+.editor__writing {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+.editor__writing-surface {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space);
+  flex: 1 1 auto;
+  min-block-size: 0;
+  min-inline-size: 0;
+}
+
+/*
+ * `100dvh` rather than the stretched height alone, so a phone's collapsing toolbar
+ * cannot leave the window taller than the screen it is on. The padding is the frame of
+ * glass around the card: wide enough to see the app behind it and to give a pointer
+ * somewhere to land that means "outside", and no wider than it has to be, because
+ * every pixel of it is a pixel the note is not writing in.
+ */
+.editor__writing[data-expanded="true"] {
   position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 60;
   block-size: 100dvh;
+  padding: clamp(0.5rem, 4vw, 4rem);
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: var(--backdrop);
+}
+
+/*
+ * The card is the window's own content box, so the frame above is the whole margin
+ * between the note and the app behind it. Its height is the window's, which is what
+ * lets the panel below take the slack; it scrolls only if the floors it is built from
+ * — the toolbar rows and the writing surface's own minimum — genuinely do not fit,
+ * which on a short screen is a great deal better than clipping them off.
+ *
+ * The surface token, the strong hairline and the widest radius in the scale, so a
+ * window over the app reads as the same object as a question over the app.
+ */
+.editor__writing[data-expanded="true"] > .editor__writing-surface {
+  inline-size: 100%;
+  block-size: 100%;
   padding: var(--space);
-  background: var(--background);
-  overflow: hidden;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
 }
 
 .editor__title-input {

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { PersonalizeDialog } from "@/components/theme/personalize-dialog"
 import { DeleteNoteDialog } from "@/components/notes/delete-note-dialog"
@@ -10,7 +10,7 @@ import { HomeView } from "@/components/home/home-view"
 import { makeNote, resetNoteIds } from "@/lib/notes/__tests__/note-factory"
 import type { Note } from "@/types/note"
 
-import { byLabelText, checkbox, click, unmountAll } from "./test-render"
+import { byLabelText, checkbox, click, query, selectValue, unmountAll } from "./test-render"
 
 import { renderWithProviders, clearStorage, seedStorage } from "./test-harness"
 
@@ -37,6 +37,41 @@ beforeEach(() => {
 
 afterEach(async () => {
   await unmountAll()
+})
+
+beforeAll(() => {
+  /*
+   * jsdom has no layout, so a range there cannot say where it is on the page. Opening
+   * the expanded writing window puts the caret in the document, and jsdom answers that
+   * focus with a selectionchange that lands while the audit is still running. ProseMirror
+   * then scrolls the caret into view, which asks a range where it is. The honest answer
+   * here is "nowhere", and a measurement that says so is one the view can carry on from,
+   * where a missing method is an exception thrown from inside the editor and reported as
+   * an unhandled error.
+   */
+  const nowhere: DOMRect = {
+    top: 0,
+    left: 0,
+    bottom: 0,
+    right: 0,
+    width: 0,
+    height: 0,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  }
+
+  for (const target of [Range.prototype, Element.prototype] as const) {
+    Object.defineProperty(target, "getClientRects", {
+      configurable: true,
+      value: () => [] as DOMRect[],
+    })
+
+    Object.defineProperty(target, "getBoundingClientRect", {
+      configurable: true,
+      value: () => nowhere,
+    })
+  }
 })
 
 function editorUi(note: Note) {
@@ -122,6 +157,18 @@ describe("axe audit", () => {
     expect(describeViolations(await audit(container))).toBe("")
   })
 
+  it("has no violations on the editor with the writing window open", async () => {
+    const note = makeNote({ title: "Alpha", content: "Body **text**." })
+
+    await seedStorage([note])
+
+    const container = await renderWithProviders(editorUi(note))
+
+    await click(byLabelText("Expand writing area", container) as HTMLElement)
+
+    expect(describeViolations(await audit(container))).toBe("")
+  })
+
   it("has no violations on the delete confirmation", async () => {
     const note = makeNote({ title: "Alpha" })
 
@@ -159,13 +206,12 @@ describe("axe audit", () => {
 
     await click(byLabelText("Tags", container) as HTMLElement)
 
-    const option = document.querySelectorAll<HTMLElement>(".shell-tags__option")
+    const filter = query(
+      "select.notes-workspace__filter",
+      container,
+    ) as HTMLSelectElement
 
-    await click(
-      Array.from(option).find((element) =>
-        element.textContent?.includes("work"),
-      ) as HTMLElement,
-    )
+    await selectValue(filter, "work")
 
     expect(describeViolations(await audit(container))).toBe("")
   })

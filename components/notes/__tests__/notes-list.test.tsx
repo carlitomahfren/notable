@@ -13,6 +13,8 @@ import {
   query,
   queryAll,
   renderedTitles,
+  selectTag,
+  tagFilter,
   type,
   unmountAll,
 } from "./test-render"
@@ -76,30 +78,8 @@ function searchBox(container: HTMLElement): HTMLInputElement {
   return input
 }
 
-/** Opens the tags disclosure and returns the option for one tag. */
-function tagOption(
-  tag: string,
-  root: ParentNode = document,
-): HTMLElement | null {
-  return (
-    queryAll<HTMLElement>(".shell-tags__option", root).find(
-      (element) =>
-        element.querySelector(".shell-tags__name")?.textContent?.trim() === tag,
-    ) ?? null
-  )
-}
-
-async function selectTag(tag: string): Promise<void> {
-  await click(navButton("Tags") as HTMLElement)
-  await click(tagOption(tag) as HTMLElement)
-}
-
-function tagCount(tag: string, root: ParentNode = document): string {
-  return (
-    tagOption(tag, root)
-      ?.querySelector(".shell-tags__count")
-      ?.textContent?.trim() ?? ""
-  )
+function workspaceCount(container: ParentNode = document): string {
+  return query(".notes-workspace__count", container)?.textContent?.trim() ?? ""
 }
 
 describe("note list selection", () => {
@@ -207,7 +187,7 @@ describe("workspace views", () => {
     expect(searchBox(container).value).toBe("Beta")
   })
 
-  it("shows a note count next to each tag", async () => {
+  it("counts the notes in a chosen tag", async () => {
     await seedStorage([
       makeNote({ title: "Alpha" }),
       makeNote({ title: "Beta", isPinned: true }),
@@ -217,9 +197,9 @@ describe("workspace views", () => {
 
     const container = await renderWithProviders(listUi())
 
-    await click(navButton("Tags") as HTMLElement)
+    await selectTag("work")
 
-    expect(tagCount("work", container)).toBe("2")
+    expect(workspaceCount(container)).toBe("2 notes")
   })
 
   it("keeps the destination labels free of counts so the bar stays scannable", async () => {
@@ -230,21 +210,19 @@ describe("workspace views", () => {
 
     const container = await renderWithProviders(listUi())
 
-    for (const label of ["All Notes", "Pinned"]) {
+    for (const label of ["All Notes", "Pinned", "Tags"]) {
       expect(navButton(label, container).textContent?.trim()).toBe(label)
     }
   })
 
-  it("reports no tags when notes carry none", async () => {
+  it("keeps the filter to All Tags when notes carry none", async () => {
     await seedStorage([makeNote({ title: "Alpha" })])
 
     const container = await renderWithProviders(listUi())
 
     await click(navButton("Tags") as HTMLElement)
 
-    expect(query(".shell-tags__empty", container)?.textContent).toBe(
-      "No tags yet",
-    )
+    expect(Array.from(tagFilter(container).options)).toHaveLength(1)
   })
 })
 

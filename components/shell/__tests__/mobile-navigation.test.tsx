@@ -194,12 +194,18 @@ describe("floating navigation pill", () => {
     expect(bottomBar().querySelector(".shell-new-note")).toBeNull()
   })
 
-  it("keeps the tag disclosure inside the pill it belongs to", async () => {
+  it("keeps the Tags destination inside the pill it belongs to", async () => {
     await renderWithProviders(<NotesShell>{null}</NotesShell>)
 
     const tags = query(".shell-tags", bottomBar())
 
     expect(tags?.dataset.placement).toBe("bottom")
-    expect(tags?.querySelector(".shell-tags__panel")).not.toBeNull()
+    expect(tags?.querySelector(".shell-tags__panel")).toBeNull()
+
+    await click(tags?.querySelector(".shell-tags__trigger") as HTMLElement)
+
+    expect(
+      query(".notes-workspace__name", document)?.textContent?.trim(),
+    ).toBe("Tags")
   })
 })

@@ -309,15 +309,18 @@ describe("expandable search", () => {
     expect(searchBar().dataset.open).toBe("false")
   })
 
-  it("closes when the tags disclosure opens, leaving one at a time", async () => {
+  it("stays open when Tags is opened, since Tags is a destination like the rest", async () => {
     await renderWithProviders(<NotesShell>{null}</NotesShell>)
 
     await click(searchToggle())
+    await type(searchField(), "alp")
+
     expect(searchBar().dataset.open).toBe("true")
 
     await click(query(".shell-tags__trigger", document) as HTMLElement)
 
-    expect(searchBar().dataset.open).toBe("false")
+    expect(searchBar().dataset.open).toBe("true")
+    expect(searchField().value).toBe("alp")
   })
 
   it("keeps a single set of controls mounted so the bars cannot disagree", async () => {

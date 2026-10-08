@@ -15,6 +15,7 @@ import {
   query,
   queryAll,
   renderedTitles,
+  selectTag,
   type,
   unmountAll,
 } from "./test-render"
@@ -99,22 +100,6 @@ async function openSearch(container: HTMLElement): Promise<HTMLInputElement> {
   }
 
   return input
-}
-
-/** Opens the tags disclosure and returns the option for one tag. */
-async function selectTag(tag: string): Promise<void> {
-  await click(navButton("Tags") as HTMLElement)
-
-  const option = queryAll<HTMLElement>(".shell-tags__option").find(
-    (element) =>
-      element.querySelector(".shell-tags__name")?.textContent?.trim() === tag,
-  )
-
-  if (option === undefined) {
-    throw new Error(`tag option not found: ${tag}`)
-  }
-
-  await click(option)
 }
 
 describe("delete from a note card", () => {
