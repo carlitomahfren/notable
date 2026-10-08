@@ -751,9 +751,10 @@ it("retires the old header delete button entirely", () => {
 
   /*
    * The delete control sits at the end of the note, so the editor has to be able to
-   * end above the fold: the note fills the pane, the writing surface takes the slack,
-   * and the surface keeps a floor rather than a height. An editor that grew to its
-   * content would push the footer off the bottom of an ordinary screen again.
+   * end above the fold: the note fills the pane and the writing surface takes the
+   * slack, bounded at zero so a short viewport shrinks the surface rather than ever
+   * drawing the note under the footer. An editor that grew to its content would push
+   * the footer off the bottom of an ordinary screen again.
    */
   it("lets the editor fill its pane so the footer stays on screen", () => {
     const pane = rules.find((rule) =>
@@ -774,10 +775,8 @@ it("retires the old header delete button entirely", () => {
       rule.selectors.includes(".rich-text__surface"),
     )!
 
-    // The floor is a floor: small enough to leave room for the rest of the note.
-    expect(remToPx(declarationsOf(surface).get("min-block-size") ?? null)).toBeLessThan(
-      18 * REM,
-    )
+    // The surface is bounded at zero, so it shrinks instead of drawing under the footer.
+    expect(declarationsOf(surface).get("min-block-size")).toBe("0")
   })
 
   /*
@@ -1348,11 +1347,29 @@ describe("the narrow layouts", () => {
     expect(stats?.body).toContain("flex-wrap: wrap")
   })
 
-  it("lowers the note's floor in a landscape phone", () => {
-    const landscape = stripped.slice(stripped.indexOf("@media (max-height: 560px)"))
+  /*
+   * Short viewports: landscape phones and an open keyboard leave the editor less
+   * height than a desktop window, and a floor on the surface made its box outgrow
+   * the unclipped columns above the footer — the note's text ran underneath the
+   * Status/Export/Delete row. The fallback that used to lower the floor now tightens
+   * the editor's rhythm instead, so the surface stays bounded and keeps whatever
+   * groove the toolbar leaves.
+   */
+  it("keeps the note bounded above the footer on a short editor", () => {
+    const short = stripped.slice(stripped.indexOf("@media (max-height: 560px)"))
 
-    expect(landscape).toMatch(/\.rich-text__surface\s*\{/)
-    expect(landscape).toMatch(/min-block-size:\s*5rem/)
+    expect(short).not.toMatch(/\.rich-text__surface\s*\{/)
+
+    for (const selector of [".editor", ".editor__writing-surface"]) {
+      const rule = rules.find(
+        (candidate) =>
+          candidate.selectors.includes(selector) &&
+          candidate.media === "@media (max-height: 560px)",
+      )
+
+      expect(rule, selector).toBeDefined()
+      expect(rule?.body, selector).toMatch(/gap:\s*var\(--space-tight\)/)
+    }
   })
 })
 

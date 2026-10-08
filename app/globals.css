@@ -1883,9 +1883,11 @@ body {
   gap: var(--space);
   /*
    * The note takes the pane's height, and the panel of editable content takes the
-   * slack inside it. The writing surface's own minimum is a floor for a short window
-   * rather than the height it asks for, so the footer with the delete control stays
-   * on screen on an ordinary desktop or phone instead of a screenful of notes later.
+   * slack inside it. The writing surface is bounded, not floored: it shrinks to
+   * whatever the viewport leaves, so the footer with the delete control stays on
+   * screen on an ordinary desktop or phone instead of a screenful of notes later,
+   * and a short window or an open keyboard can never push the note behind the
+   * footer's own row.
    */
   flex: 1 1 auto;
   min-block-size: 0;
@@ -1919,8 +1921,24 @@ body {
   flex-direction: column;
   gap: var(--space);
   flex: 1 1 auto;
+  /*
+   * A real box. The surface inside it is the note's scroll port on an ordinary
+   * screen, but a short viewport squishes this box until the chrome above the
+   * surface no longer fits, and an open box then lets it escape through the
+   * unclipped seams and land on the footer with the note drawn underneath the
+   * Status/Export/Delete row. So the writing area clips its own overflow and
+   * scrolls within itself whenever it is squished: the row below is never
+   * painted over, and scrolling the writing area surfaces the note normally.
+   */
   min-block-size: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
   min-inline-size: 0;
+}
+
+.editor__writing::-webkit-scrollbar {
+  display: none;
 }
 
 .editor__writing-surface {
@@ -1953,9 +1971,8 @@ body {
 /*
  * The card is the window's own content box, so the frame above is the whole margin
  * between the note and the app behind it. Its height is the window's, which is what
- * lets the panel below take the slack; it scrolls only if the floors it is built from
- * — the toolbar rows and the writing surface's own minimum — genuinely do not fit,
- * which on a short screen is a great deal better than clipping them off.
+ * lets the panel below take the slack; it scrolls only if the toolbar rows genuinely
+ * do not fit, which on a short screen is a great deal better than clipping them off.
  *
  * The surface token, the strong hairline and the widest radius in the scale, so a
  * window over the app reads as the same object as a question over the app.
@@ -2151,7 +2168,8 @@ body {
   min-inline-size: 0;
   /*
    * Zero, so the panel is allowed to shrink below its content and hand the space to
-   * the writing surface. The automatic minimum would keep the floor from being a floor.
+   * the writing surface. The automatic minimum would push the surface past the
+   * footer on a short viewport instead of letting the column stay bounded.
    */
   min-block-size: 0;
   /*
@@ -2273,7 +2291,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: var(--space-tight);
-  /* Takes the slack in the panel, and stops below at the floor set on the surface. */
+  /* Takes the slack in the panel, bounded at zero so it can never outgrow the column. */
   flex: 1 1 auto;
   min-block-size: 0;
 }
@@ -2281,7 +2299,14 @@ body {
 .rich-text__surface {
   overflow-y: auto;
   flex: 1 1 auto;
-  min-block-size: 8rem;
+  /*
+   * Bounded rather than floored. The surface is the flex child that takes the slack,
+   * so a nonzero minimum made its box outgrow the unclipped columns above the footer
+   * on a short viewport or with the keyboard open — the note's text ran underneath
+   * the Status/Export/Delete row. At zero the surface keeps whatever groove remains
+   * and scrolls inside it.
+   */
+  min-block-size: 0;
   padding: var(--space);
   background: transparent;
   /*
@@ -2773,12 +2798,15 @@ body {
 /*
  * Short viewports: keep the editor reachable instead of a screenful of note.
  *
- * On a landscape phone the note's own chrome is most of the height, so the floor on the
- * writing surface comes down rather than pushing the footer off the screen.
+ * On a landscape phone the note's own chrome is most of the height. The writing
+ * surface is bounded rather than floored, so the fallback tightens the editor's
+ * rhythm instead: every step of slack that the taller breakpoint spent on gaps
+ * is a step the note can keep.
  */
 @media (max-height: 560px) {
-  .rich-text__surface {
-    min-block-size: 5rem;
+  .editor,
+  .editor__writing-surface {
+    gap: var(--space-tight);
   }
 }
 
