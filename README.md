@@ -1,52 +1,111 @@
 # Notable
 
-A personal notebook and workspace: plain text notes written in Markdown, pinned, tagged, and
-stored in the browser. There is no account and nothing leaves the device.
+**A personal notebook with the flexibility of digital notes and the personality of a customizable workspace.**
 
-Built with [Next.js](https://nextjs.org) (App Router, Turbopack) and TypeScript, with
-[Tiptap](https://tiptap.dev) as the editor engine. See `docs/project-specification-v1.md` for the
-product specification and `docs/technical-implementation-plan-v1.md` for the architecture.
+Notable is a responsive, browser-based note-taking application for writing, organizing, and managing notes in a clean, customizable workspace. It combines a rich-text editing experience with Markdown-based content storage, manual note organization, and personalized themes.
+
+**Live Demo:** [notable-notes.vercel.app](https://notable-notes.vercel.app)  
+**Repository:** [github.com/carlitomahfren/notable](https://github.com/carlitomahfren/notable)
+
+## Features
+
+- **Rich-text editor** — Write naturally with headings, bold, italic, lists, checklists, links, code blocks, and blockquotes.
+- **Markdown-based content** — Store note content in Markdown while editing through a visual rich-text interface.
+- **Note organization** — Create, edit, delete, pin, tag, and manually reorder notes.
+- **Search** — Find notes by title, content, or tags.
+- **Customizable appearance** — Choose light, dark, or system color mode; select theme presets; and customize the accent color.
+- **Export** — Export notes into supported formats, including Markdown, text, and PDF.
+- **Autosave** — Save note changes automatically.
+- **Responsive interface** — Adapt the workspace for desktop, tablet, and mobile screens.
+- **Accessibility-focused interactions** — Keyboard navigation, visible focus states, reduced-motion support, and accessible controls.
+- **Animated entry experience** — A short, theme-aware splash animation when entering the application.
+
+## Privacy and Storage
+
+Notable does not require an account. Notes are stored locally in the browser rather than synchronized to a cloud database.
+
+This means notes are tied to the browser and device where they were created. Clearing browser data or losing access to that browser can put notes at risk, so users should export important notes for safekeeping.
+
+Notable does not currently provide account-based cloud synchronization or real-time collaboration.
+
+## Technology Stack
+
+| Technology            | Purpose                                     |
+| --------------------- | ------------------------------------------- |
+| Next.js App Router    | Application framework and routing           |
+| React                 | User interface                              |
+| TypeScript            | Type-safe development                       |
+| Tailwind CSS          | Styling and responsive UI                   |
+| Tiptap                | Rich-text editor                            |
+| Markdown              | Note content representation and interchange |
+| Browser local storage | Local persistence                           |
+| Vitest                | Automated testing                           |
+| ESLint                | Code quality and linting                    |
+| Git and GitHub        | Version control and source hosting          |
+| Vercel                | Production deployment                       |
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js compatible with the project's configured environment
+- npm
+
+### Installation
+
+Clone the repository:
+
+```bash
+git clone https://github.com/carlitomahfren/notable.git
+cd notable
+```
+
+Install dependencies:
+
+```bash
+npm install
+```
+
+Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Available Scripts
 
-## Scripts
+| Command             | Description                  |
+| ------------------- | ---------------------------- |
+| `npm run dev`       | Start the development server |
+| `npm run build`     | Create a production build    |
+| `npm run start`     | Run the production build     |
+| `npm run lint`      | Run ESLint                   |
+| `npm run typecheck` | Run TypeScript checks        |
+| `npm test`          | Run the Vitest test suite    |
 
-| Script | What it does |
-| --- | --- |
-| `npm run dev` | Starts the development server |
-| `npm run build` | Production build |
-| `npm run start` | Serves the production build |
-| `npm run lint` | ESLint |
-| `npm run typecheck` | `tsc --noEmit` |
-| `npm test` | Vitest suite |
+## Project Documentation
 
-## Learn More
+The repository includes documentation covering the product requirements and technical architecture:
 
-To learn more about Next.js, take a look at the following resources:
+- [`docs/project-specification-v1.md`](docs/project-specification-v1.md) — Product specification and scope.
+- [`docs/technical-implementation-plan-v1.md`](docs/technical-implementation-plan-v1.md) — Technical architecture and implementation plan.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Deployment
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Notable is deployed on [Vercel](https://vercel.com/).
 
-## Deploy on Vercel
+Visit the live application:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+**[https://notable-notes.vercel.app](https://notable-notes.vercel.app)**
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Status
+
+Notable's current V1 feature scope is complete. The application has been deployed and manually verified across its core workflows, themes, exports, responsive layouts, and reduced-motion behavior.
+
+Future enhancements are maintained separately from the current release so the completed version can remain stable while the project is presented in a portfolio.
+
+## License
+
+No license has been specified yet. All rights are reserved by default unless a license is added to the repository.
